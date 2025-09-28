@@ -1,32 +1,33 @@
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="SecDev Course App", version="0.1.0")
+from fastapi import FastAPI
 
-
-class ApiError(Exception):
-    def __init__(self, code: str, message: str, status: int = 400):
-        self.code = code
-        self.message = message
-        self.status = status
+from app.api.error_handlers import ApiError, setup_exception_handlers
+from app.api.media import router as media_router
+from app.crud import media as media_crud
 
 
-@app.exception_handler(ApiError)
-async def api_error_handler(request: Request, exc: ApiError):
-    return JSONResponse(
-        status_code=exc.status,
-        content={"error": {"code": exc.code, "message": exc.message}},
-    )
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan события приложения"""
+    # Startup: создаем демо-данные
+    media_crud.create_demo_data(user_id=1)
+    yield
+    pass
 
 
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    # Normalize FastAPI HTTPException into our error envelope
-    detail = exc.detail if isinstance(exc.detail, str) else "http_error"
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"error": {"code": "http_error", "message": detail}},
-    )
+app = FastAPI(
+    title="Media Catalog API",
+    version="0.1.0",
+    description="Каталог фильмов/курсов к просмотру",
+    lifespan=lifespan,  # Вместо on_event
+)
+
+# Настраиваем обработчик ошибок
+setup_exception_handlers(app)
+
+# Регистрируем роутеры
+app.include_router(media_router, prefix="/media", tags=["media"])
 
 
 @app.get("/health")
@@ -34,12 +35,12 @@ def health():
     return {"status": "ok"}
 
 
-# Example minimal entity (for tests/demo)
 _DB = {"items": []}
 
 
 @app.post("/items")
 def create_item(name: str):
+
     if not name or len(name) > 100:
         raise ApiError(
             code="validation_error", message="name must be 1..100 chars", status=422
@@ -51,6 +52,8 @@ def create_item(name: str):
 
 @app.get("/items/{item_id}")
 def get_item(item_id: int):
+    from app.api.error_handlers import ApiError
+
     for it in _DB["items"]:
         if it["id"] == item_id:
             return it
