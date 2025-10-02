@@ -10,6 +10,7 @@ repos:
       - id: mixed-line-ending
       - id: no-commit-to-branch  # запрет коммитов в main
         args: ['--branch', 'main', '--branch', 'master']
+        stages: [commit, push]
 
       # Новые правила под Media Catalog проект:
       - id: check-toml              # Валидация pyproject.toml
