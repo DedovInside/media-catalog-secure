@@ -8,6 +8,20 @@ repos:
       - id: check-json
       - id: check-yaml
       - id: mixed-line-ending
+      - id: no-commit-to-branch  # запрет коммитов в main
+        args: ['--branch', 'main', '--branch', 'master']
+
+      # Новые правила под Media Catalog проект:
+      - id: check-toml              # Валидация pyproject.toml
+      - id: check-ast               # Проверка синтаксиса Python
+      - id: debug-statements        # Поиск print(), pdb.set_trace()
+      - id: name-tests-test         # Проверка имен тестов (test_*.py)
+        args: ['--pytest-test-first']
+      - id: check-added-large-files # Защита от больших файлов
+        args: ['--maxkb=500']
+      - id: check-case-conflict     # Проверка конфликтов имен файлов
+      - id: check-executables-have-shebangs  # Исполняемые файлы
+      - id: fix-byte-order-marker   # Исправление BOM
   - repo: https://github.com/psf/black
     rev: 24.8.0
     hooks:
