@@ -92,8 +92,16 @@ class TestMediaAPI:
         assert response.status_code == 404
 
         error = response.json()
-        assert error["error"]["code"] == "not_found"
-        assert "999" in error["error"]["message"]
+        # RFC 7807 структура
+        assert "type" in error
+        assert "title" in error
+        assert "status" in error
+        assert "detail" in error
+        assert "correlation_id" in error
+
+        # Безопасное сообщение
+        assert error["detail"] == "The requested resource could not be found"
+        assert "999" not in error["detail"]  # ID НЕ РАСКРЫВАЕТСЯ
 
     def test_create_duplicate_media(self):
         """Тест создания дублирующего медиа"""
@@ -112,8 +120,15 @@ class TestMediaAPI:
         assert response2.status_code == 409
 
         error = response2.json()
-        assert error["error"]["code"] == "media_already_exists"
-        assert "Indiana Jones" in error["error"]["message"]
+        # RFC 7807 структура
+        assert "type" in error
+        assert "status" in error
+        assert "detail" in error
+        assert "correlation_id" in error
+
+        # Безопасное сообщение
+        assert error["detail"] == "A resource with these properties already exists"
+        assert "Indiana Jones" not in error["detail"]  # DATA НЕ РАСКРЫВАЕТСЯ
 
     def test_filter_media_by_kind(self):
         """Тест фильтрации медиа по типу"""
@@ -224,7 +239,9 @@ class TestMediaAPI:
         assert response.status_code == 404
 
         error = response.json()
-        assert error["error"]["code"] == "not_found"
+        # ✅ RFC 7807 структура
+        assert error["detail"] == "The requested resource could not be found"
+        assert "999" not in error["detail"]
 
 
 class TestMediaValidation:

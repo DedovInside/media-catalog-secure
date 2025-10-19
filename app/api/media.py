@@ -58,7 +58,7 @@ def get_media_by_id(media_id: int) -> MediaResponse:
     media = media_crud.get_media_by_id(media_id, CURRENT_USER_ID)
     if not media:
         raise ApiError(
-            code="not_found", message=f"Media with id {media_id} not found", status=404
+            code="not_found", status=404  # Безопасное сообщение из ERROR_MESSAGES
         )
 
     return MediaResponse(
@@ -88,11 +88,7 @@ def create_media(media_data: MediaCreate) -> MediaResponse:
         media_data.title, media_data.year, media_data.kind, CURRENT_USER_ID
     ):
         raise ApiError(
-            code="media_already_exists",
-            message=(
-                f"Media '{media_data.title}' ({media_data.year}, {media_data.kind}) "
-                f"already exists"
-            ),
+            code="already_exists",
             status=409,
         )
 
@@ -117,7 +113,7 @@ def update_media(media_id: int, media_data: MediaUpdate) -> MediaResponse:
     updated_media = media_crud.update_media(media_id, media_data, CURRENT_USER_ID)
     if not updated_media:
         raise ApiError(
-            code="not_found", message=f"Media with id {media_id} not found", status=404
+            code="not_found", status=404  # Безопасное сообщение из SAFE_ERROR_DETAILS
         )
 
     return MediaResponse(
@@ -149,7 +145,7 @@ def update_media_status(media_id: int, status_data: MediaStatusUpdate) -> MediaR
     )
     if not updated_media:
         raise ApiError(
-            code="not_found", message=f"Media with id {media_id} not found", status=404
+            code="not_found", status=404  # Безопасное сообщение из SAFE_ERROR_DETAILS
         )
 
     return MediaResponse(
@@ -170,5 +166,5 @@ def delete_media(media_id: int):
     """Удалить медиа из каталога"""
     if not media_crud.delete_media(media_id, CURRENT_USER_ID):
         raise ApiError(
-            code="not_found", message=f"Media with id {media_id} not found", status=404
+            code="not_found", status=404  # Безопасное сообщение из SAFE_ERROR_DETAILS
         )
