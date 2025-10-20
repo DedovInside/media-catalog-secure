@@ -43,7 +43,8 @@ def create_item(name: str):
 
     if not name or len(name) > 100:
         raise ApiError(
-            code="validation_error", message="name must be 1..100 chars", status=422
+            code="validation_error",  # Безопасное сообщение из SAFE_ERROR_DETAILS
+            status=422,
         )
     item = {"id": len(_DB["items"]) + 1, "name": name}
     _DB["items"].append(item)
@@ -57,4 +58,4 @@ def get_item(item_id: int):
     for it in _DB["items"]:
         if it["id"] == item_id:
             return it
-    raise ApiError(code="not_found", message="item not found", status=404)
+    raise ApiError(code="not_found", status=404)  # Без message
