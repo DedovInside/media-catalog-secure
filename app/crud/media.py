@@ -5,7 +5,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.media import MediaModel
-from app.schemas.media import MediaCreate, MediaKind, MediaStatusUpdate, MediaUpdate, WatchStatus
+from app.schemas.media import (
+    MediaCreate,
+    MediaKind,
+    MediaStatusUpdate,
+    MediaUpdate,
+    WatchStatus,
+)
 
 
 class MediaCRUD:
