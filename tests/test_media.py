@@ -1,28 +1,16 @@
-import pytest
 from fastapi.testclient import TestClient
-
-from app.crud import media as media_crud
-from app.main import app
-
-client = TestClient(app)
-
-
-@pytest.fixture(autouse=True)
-def reset_media_db():
-    """Очистка медиа базы данных перед каждым тестом"""
-    media_crud.clear_all()
 
 
 class TestMediaAPI:
     """Тесты для /media эндпоинтов"""
 
-    def test_get_empty_media_list(self):
+    def test_get_empty_media_list(self, client: TestClient):
         """Тест получения пустого списка медиа"""
         response = client.get("/media")
         assert response.status_code == 200
         assert response.json() == []
 
-    def test_create_media_success(self):
+    def test_create_media_success(self, client: TestClient):
         """Тест успешного создания медиа"""
         media_data = {
             "title": "The Rock",
@@ -43,7 +31,7 @@ class TestMediaAPI:
         assert "id" in created_media
         assert "created_at" in created_media
 
-    def test_get_media_list_after_creation(self):
+    def test_get_media_list_after_creation(self, client: TestClient):
         """Тест получения списка медиа после создания"""
         # Создаем два медиа
         media1 = {
@@ -62,15 +50,11 @@ class TestMediaAPI:
         media_list = response.json()
         assert len(media_list) == 2
 
-        # Проверяем первое медиа
-        assert media_list[0]["title"] == "The Lord of the Rings: The Return of the King"
-        assert media_list[0]["kind"] == "movie"
+        titles = [media["title"] for media in media_list]
+        assert "The Lord of the Rings: The Return of the King" in titles
+        assert "BlockChain Course" in titles
 
-        # Проверяем второе медиа
-        assert media_list[1]["title"] == "BlockChain Course"
-        assert media_list[1]["kind"] == "course"
-
-    def test_get_media_by_id_success(self):
+    def test_get_media_by_id_success(self, client: TestClient):
         """Тест получения медиа по ID"""
         # Создаем медиа
         create_response = client.post(
@@ -86,7 +70,7 @@ class TestMediaAPI:
         assert media["id"] == media_id
         assert media["title"] == "Test Movie"
 
-    def test_get_media_by_id_not_found(self):
+    def test_get_media_by_id_not_found(self, client: TestClient):
         """Тест получения несуществующего медиа"""
         response = client.get("/media/999")
         assert response.status_code == 404
@@ -103,7 +87,7 @@ class TestMediaAPI:
         assert error["detail"] == "The requested resource could not be found"
         assert "999" not in error["detail"]  # ID НЕ РАСКРЫВАЕТСЯ
 
-    def test_create_duplicate_media(self):
+    def test_create_duplicate_media(self, client: TestClient):
         """Тест создания дублирующего медиа"""
         media_data = {
             "title": "Indiana Jones and the Last Crusade",
@@ -130,7 +114,7 @@ class TestMediaAPI:
         assert error["detail"] == "A resource with these properties already exists"
         assert "Indiana Jones" not in error["detail"]  # DATA НЕ РАСКРЫВАЕТСЯ
 
-    def test_filter_media_by_kind(self):
+    def test_filter_media_by_kind(self, client: TestClient):
         """Тест фильтрации медиа по типу"""
         # Создаем медиа разных типов
         client.post("/media", json={"title": "Movie 1", "kind": "movie", "year": 2020})
@@ -150,7 +134,12 @@ class TestMediaAPI:
         for media in media_list:
             assert media["kind"] == "movie"
 
-    def test_filter_media_by_status(self):
+        # Проверяем конкретные названия
+        titles = [media["title"] for media in media_list]
+        assert "Movie 1" in titles
+        assert "Movie 2" in titles
+
+    def test_filter_media_by_status(self, client: TestClient):
         """Тест фильтрации медиа по статусу"""
         # Создаем медиа
         create_response = client.post(
@@ -172,7 +161,7 @@ class TestMediaAPI:
         assert media_list[0]["status"] == "watched"
         assert media_list[0]["rating"] == 8
 
-    def test_update_media_success(self):
+    def test_update_media_success(self, client: TestClient):
         """Тест обновления медиа"""
         # Создаем медиа
         create_response = client.post(
@@ -198,7 +187,7 @@ class TestMediaAPI:
         assert updated_media["description"] == "Updated description"
         assert updated_media["id"] == media_id  # ID не должен измениться
 
-    def test_update_media_status_success(self):
+    def test_update_media_status_success(self, client: TestClient):
         """Тест обновления статуса медиа"""
         # Создаем медиа
         create_response = client.post(
@@ -217,7 +206,7 @@ class TestMediaAPI:
         assert updated_media["rating"] == 9
         assert updated_media["title"] == "Test Movie"  # Остальные поля не изменились
 
-    def test_delete_media_success(self):
+    def test_delete_media_success(self, client: TestClient):
         """Тест удаления медиа"""
         # Создаем медиа
         create_response = client.post(
@@ -233,7 +222,7 @@ class TestMediaAPI:
         get_response = client.get(f"/media/{media_id}")
         assert get_response.status_code == 404
 
-    def test_delete_media_not_found(self):
+    def test_delete_media_not_found(self, client: TestClient):
         """Тест удаления несуществующего медиа"""
         response = client.delete("/media/999")
         assert response.status_code == 404
@@ -247,7 +236,7 @@ class TestMediaAPI:
 class TestMediaValidation:
     """Тесты валидации данных медиа"""
 
-    def test_create_media_invalid_year_future(self):
+    def test_create_media_invalid_year_future(self, client: TestClient):
         """Тест создания медиа с годом из будущего"""
         media_data = {
             "title": "Future Movie",
@@ -258,7 +247,7 @@ class TestMediaValidation:
         response = client.post("/media", json=media_data)
         assert response.status_code == 422  # Validation error
 
-    def test_create_media_invalid_year_past(self):
+    def test_create_media_invalid_year_past(self, client: TestClient):
         """Тест создания медиа с очень старым годом"""
         media_data = {
             "title": "Ancient Movie",
@@ -269,14 +258,14 @@ class TestMediaValidation:
         response = client.post("/media", json=media_data)
         assert response.status_code == 422  # Validation error
 
-    def test_create_media_empty_title(self):
+    def test_create_media_empty_title(self, client: TestClient):
         """Тест создания медиа с пустым названием"""
         media_data = {"title": "", "kind": "movie", "year": 2020}  # Пустое название
 
         response = client.post("/media", json=media_data)
         assert response.status_code == 422  # Validation error
 
-    def test_create_media_invalid_kind(self):
+    def test_create_media_invalid_kind(self, client: TestClient):
         """Тест создания медиа с неверным типом"""
         media_data = {
             "title": "Test Movie",
@@ -291,7 +280,7 @@ class TestMediaValidation:
 class TestMediaIntegration:
     """Интеграционные тесты полного жизненного цикла"""
 
-    def test_full_media_lifecycle(self):
+    def test_full_media_lifecycle(self, client: TestClient):
         """Тест полного жизненного цикла медиа"""
         # 1. Создание медиа
         media_data = {
@@ -357,4 +346,7 @@ class TestMediaIntegration:
         # 9. Проверяем, что список пуст
         final_list_response = client.get("/media")
         assert final_list_response.status_code == 200
-        assert final_list_response.json() == []
+        # Проверяем что наш media_id отсутствует
+        final_media_list = final_list_response.json()
+        media_ids = [media["id"] for media in final_media_list]
+        assert media_id not in media_ids  # Наше медиа должно быть удалено

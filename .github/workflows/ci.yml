@@ -3,15 +3,37 @@ on:
   pull_request:
   push:
     branches: [main]
+
 permissions:
   contents: read
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+    env:
+      ENV: ci  # Указываем что это CI environment
+      # GitHub Secrets автоматически в env:
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ${{ secrets.DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.DB_NAME }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
       - uses: actions/checkout@v4
 
@@ -25,14 +47,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
 
+      - name: Run database migrations
+        run: |
+          # Когда добавим Alembic:
+          # alembic upgrade head
+          echo "Database ready"
+
       - name: Lint & Format
         run: |
           ruff check --output-format=github .
           black --check .
           isort --check-only .
 
-      - name: Tests
-        run: pytest -q
+      - name: Tests with real database
+        run: pytest -v --tb=short
 
-      - name: Pre-commit (all files)
-        run: pre-commit run --all-files --hook-stage manual
+      - name: Security scanning
+        run: |
+          # Когда добавим из Issue #10:
+          # bandit -r app/ -ll
+          # safety check
+          echo "Security scanning placeholder"

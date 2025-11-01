@@ -1,19 +1,36 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from app.api.error_handlers import ApiError, setup_exception_handlers
 from app.api.media import router as media_router
-from app.crud import media as media_crud
+from app.core.database import AsyncSessionLocal, create_tables
+from app.crud import media_crud
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan события приложения"""
-    # Startup: создаем демо-данные
-    media_crud.create_demo_data(user_id=1)
-    yield
-    pass
+    env = os.getenv("ENV", "local").lower()
+    try:
+        if env == "test":
+            await create_tables()
+            yield
+        elif env == "ci":
+            await create_tables()
+            yield
+        else:
+            await create_tables()
+            try:
+                async with AsyncSessionLocal() as db:
+                    await media_crud.create_demo_data(db, user_id=1)
+            except Exception as e:
+                print(f"[lifespan] Demo data creation failed: {e}")
+            yield
+    except Exception as e:
+        print(f"[lifespan] Unexpected error: {e}")
+        yield
 
 
 app = FastAPI(

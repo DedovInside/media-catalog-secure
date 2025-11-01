@@ -1,4 +1,3 @@
-# app/api/problem.py
 import uuid
 from typing import Any, Dict, Optional
 

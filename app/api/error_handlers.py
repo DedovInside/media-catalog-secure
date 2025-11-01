@@ -1,4 +1,3 @@
-# app/api/error_handlers.py
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse

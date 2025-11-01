@@ -1,11 +1,7 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
 
-client = TestClient(app)
-
-
-def test_not_found_item():
+def test_not_found_item(client: TestClient):
     r = client.get("/items/999")
     assert r.status_code == 404
     body = r.json()
@@ -17,7 +13,7 @@ def test_not_found_item():
     assert body["detail"] == "The requested resource could not be found"
 
 
-def test_validation_error():
+def test_validation_error(client: TestClient):
     r = client.post("/items", params={"name": ""})
     assert r.status_code == 422
     body = r.json()
