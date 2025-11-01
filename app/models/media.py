@@ -1,6 +1,5 @@
-from sqlalchemy import Column, DateTime
+from sqlalchemy import Column, DateTime, Index, Integer, String
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import Index, Integer, String
 from sqlalchemy.sql import func
 
 from app.schemas.media import MediaKind, WatchStatus
