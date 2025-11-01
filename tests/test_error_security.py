@@ -64,9 +64,7 @@ class TestErrorSecurity:
 
     def test_validation_error_rfc7807_format(self, client: TestClient):
         """Test validation errors follow RFC 7807 format with safe details"""
-        response = client.post(
-            "/media", json={"title": "", "kind": "movie", "year": 2024}
-        )
+        response = client.post("/media", json={"title": "", "kind": "movie", "year": 2024})
         assert response.status_code == 422
 
         # This will be handled by FastAPI's validation, but should be safe

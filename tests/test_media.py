@@ -118,9 +118,7 @@ class TestMediaAPI:
         """Тест фильтрации медиа по типу"""
         # Создаем медиа разных типов
         client.post("/media", json={"title": "Movie 1", "kind": "movie", "year": 2020})
-        client.post(
-            "/media", json={"title": "Course 1", "kind": "course", "year": 2021}
-        )
+        client.post("/media", json={"title": "Course 1", "kind": "course", "year": 2021})
         client.post("/media", json={"title": "Movie 2", "kind": "movie", "year": 2022})
 
         # Фильтруем по типу movie
@@ -148,9 +146,7 @@ class TestMediaAPI:
         media_id = create_response.json()["id"]
 
         # Меняем статус на watched
-        client.patch(
-            f"/media/{media_id}/status", json={"status": "watched", "rating": 8}
-        )
+        client.patch(f"/media/{media_id}/status", json={"status": "watched", "rating": 8})
 
         # Фильтруем по статусу watched
         response = client.get("/media?status=watched")
@@ -300,9 +296,7 @@ class TestMediaIntegration:
         assert get_response.json()["title"] == "Forrest Gump"
 
         # 3. Обновление статуса на "watching"
-        status_response = client.patch(
-            f"/media/{media_id}/status", json={"status": "watching"}
-        )
+        status_response = client.patch(f"/media/{media_id}/status", json={"status": "watching"})
         assert status_response.status_code == 200
         assert status_response.json()["status"] == "watching"
 

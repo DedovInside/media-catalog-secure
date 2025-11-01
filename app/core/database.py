@@ -25,9 +25,7 @@ def get_db_secrets() -> dict:
             client = hvac.Client(url=os.getenv("VAULT_ADDR", "http://127.0.0.1:8200"))
             client.token = os.getenv("VAULT_TOKEN")
             if not client.is_authenticated():
-                raise RuntimeError(
-                    "Vault authentication failed: invalid or missing VAULT_TOKEN"
-                )
+                raise RuntimeError("Vault authentication failed: invalid or missing VAULT_TOKEN")
 
             path = "media-catalog/database" if env == "local" else "media-catalog/test"
             secret = client.secrets.kv.v2.read_secret_version(
@@ -84,9 +82,7 @@ sync_engine = create_engine(
 )
 
 # SESSION
-AsyncSessionLocal = sessionmaker(
-    async_engine, class_=AsyncSession, expire_on_commit=False
-)
+AsyncSessionLocal = sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

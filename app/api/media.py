@@ -97,9 +97,7 @@ async def update_media(  # ASYNC
     media_id: int, media_data: MediaUpdate, db: AsyncSession = Depends(get_db)
 ) -> MediaResponse:
     """Update media"""
-    updated_media = await media_crud.update_media(
-        db, media_id, media_data, CURRENT_USER_ID
-    )
+    updated_media = await media_crud.update_media(db, media_id, media_data, CURRENT_USER_ID)
     if not updated_media:
         raise ApiError(code="not_found", status=404)
 
@@ -121,9 +119,7 @@ async def update_media_status(  # ASYNC
     media_id: int, status_data: MediaStatusUpdate, db: AsyncSession = Depends(get_db)
 ) -> MediaResponse:
     """Update media status"""
-    updated_media = await media_crud.update_media_status(
-        db, media_id, status_data, CURRENT_USER_ID
-    )
+    updated_media = await media_crud.update_media_status(db, media_id, status_data, CURRENT_USER_ID)
     if not updated_media:
         raise ApiError(code="not_found", status=404)
 

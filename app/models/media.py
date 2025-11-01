@@ -1,5 +1,6 @@
-from sqlalchemy import Column, DateTime, Index, Integer, String
+from sqlalchemy import Column, DateTime
 from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import Index, Integer, String
 from sqlalchemy.sql import func
 
 from app.schemas.media import MediaKind, WatchStatus
@@ -23,9 +24,7 @@ class MediaModel(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
-        Index(
-            "ix_media_user_title_year", "user_id", "title", "year"
-        ),  # Duplicate check
+        Index("ix_media_user_title_year", "user_id", "title", "year"),  # Duplicate check
         Index("ix_media_user_kind", "user_id", "kind"),  # Filtering by kind
         Index("ix_media_user_status", "user_id", "status"),  # Filtering by status
         Index("ix_media_user_created", "user_id", "created_at"),  # Ordering by date
@@ -33,6 +32,4 @@ class MediaModel(Base):
     )
 
     def __repr__(self):
-        return (
-            f"<MediaModel(id={self.id}, title='{self.title}', user_id={self.user_id})>"
-        )
+        return f"<MediaModel(id={self.id}, title='{self.title}', user_id={self.user_id})>"
