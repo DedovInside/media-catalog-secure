@@ -7,13 +7,11 @@ from typing import Generator
 import pytest
 from fastapi.testclient import TestClient
 
+os.environ["ENV"] = "test"
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-
-os.environ["ENV"] = "test"
-
-from app.main import app
 
 
 @pytest.fixture(scope="session")
@@ -62,7 +60,7 @@ def cleanup_before_each_test():
                 cur.execute(
                     """
                     SELECT EXISTS (
-                        SELECT FROM information_schema.tables 
+                        SELECT FROM information_schema.tables
                         WHERE table_name = 'media'
                     )
                 """
@@ -86,5 +84,7 @@ def cleanup_before_each_test():
 @pytest.fixture(scope="function")
 def client() -> Generator[TestClient, None, None]:
     """Simple TestClient БЕЗ cleanup в fixture"""
+    from app.main import app
+
     with TestClient(app) as test_client:
         yield test_client
