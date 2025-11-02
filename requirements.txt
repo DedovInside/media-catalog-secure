@@ -1,2 +1,7 @@
 fastapi==0.112.2
 uvicorn==0.30.5
+sqlalchemy==2.0.23
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+alembic==1.12.1
+hvac==2.1.0

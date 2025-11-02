@@ -1,4 +1,3 @@
-# app/api/error_handlers.py
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -23,9 +22,7 @@ def setup_exception_handlers(app: FastAPI):
         response_data = problem(
             status=exc.status,
             # title автоматически: 404 -> "Not Found", 409 -> "Conflict"
-            detail=SAFE_ERROR_DETAILS.get(
-                exc.code, "An error occurred"
-            ),  # ТОЛЬКО DETAIL
+            detail=SAFE_ERROR_DETAILS.get(exc.code, "An error occurred"),  # ТОЛЬКО DETAIL
         )
         return JSONResponse(status_code=exc.status, content=response_data)
 
@@ -43,21 +40,15 @@ def setup_exception_handlers(app: FastAPI):
         """Handle general Pydantic validation errors"""
         response_data = problem(
             status=400,  # Generic bad request for internal validation
-            detail=SAFE_ERROR_DETAILS.get(
-                "validation_error", "The provided data is invalid"
-            ),
+            detail=SAFE_ERROR_DETAILS.get("validation_error", "The provided data is invalid"),
         )
         return JSONResponse(status_code=400, content=response_data)
 
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(
-        request: Request, exc: RequestValidationError
-    ):
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
         """Handle FastAPI request validation errors - ALWAYS 422"""
         response_data = problem(
             status=422,  # RequestValidationError всегда 422
-            detail=SAFE_ERROR_DETAILS.get(
-                "validation_error", "The provided data is invalid"
-            ),
+            detail=SAFE_ERROR_DETAILS.get("validation_error", "The provided data is invalid"),
         )
         return JSONResponse(status_code=422, content=response_data)

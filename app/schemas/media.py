@@ -33,13 +33,9 @@ class Media(BaseModel):
     year: int = Field(..., ge=1800, le=2030, description="Год выпуска")
     description: Optional[str] = Field(None, max_length=1000, description="Описание")
     user_id: int = Field(..., description="ID владельца")
-    status: WatchStatus = Field(
-        default=WatchStatus.TO_WATCH, description="Статус просмотра"
-    )
+    status: WatchStatus = Field(default=WatchStatus.TO_WATCH, description="Статус просмотра")
     rating: Optional[int] = Field(None, ge=1, le=10, description="Рейтинг")
-    created_at: datetime = Field(
-        default_factory=datetime.now, description="Дата добавления"
-    )
+    created_at: datetime = Field(default_factory=datetime.now, description="Дата добавления")
 
 
 class MediaBase(BaseModel):

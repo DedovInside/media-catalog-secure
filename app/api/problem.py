@@ -1,4 +1,3 @@
-# app/api/problem.py
 import uuid
 from typing import Any, Dict, Optional
 
@@ -43,8 +42,7 @@ def problem(
         title = HTTP_STATUS_TITLES.get(status, "Error")
 
     problem_response = {
-        "type": type_url
-        or f"https://tools.ietf.org/html/rfc7231#section-6.5.{status//100}",
+        "type": type_url or f"https://tools.ietf.org/html/rfc7231#section-6.5.{status//100}",
         "title": title,  # КРАТКИЙ ИЗ HTTP СТАТУСА
         "status": status,
         "detail": detail or "An error occurred",  # ПОДРОБНЫЙ ИЗ ПАРАМЕТРА
