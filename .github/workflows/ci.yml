@@ -64,7 +64,6 @@ jobs:
 
       - name: Security scanning
         run: |
-          # Когда добавим из Issue #10:
-          # bandit -r app/ -ll
-          # safety check
-          echo "Security scanning placeholder"
+          pip install bandit[toml]
+          bandit -r app/ -f json -o bandit-report.json
+          bandit -r app/ -ll  # Fail build on Low+ severity

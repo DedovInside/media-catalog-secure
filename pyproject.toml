@@ -5,7 +5,7 @@ target-version = "py311"
 exclude = ["venv", ".venv", "build", "dist"]
 
 # Отключить I001 (import sorting) в ruff, пусть isort этим занимается
-lint.select = ["E", "F", "W"]  # УБРАТЬ "I" 
+lint.select = ["E", "F", "W"]  # УБРАТЬ "I"
 lint.ignore = ["E501"]  # line too long (handled by black)
 
 [tool.isort]
@@ -32,3 +32,10 @@ extend-exclude = '''
   | dist
 )/
 '''
+
+[tool.bandit]
+exclude_dirs = ["tests", "venv", ".venv"]
+skips = ["B101"]  # Allow asserts in tests
+
+[tool.bandit.assert_used]
+skips = ["**/test_*.py"]  # Asserts OK в тестах
