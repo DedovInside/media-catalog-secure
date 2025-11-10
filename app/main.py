@@ -7,6 +7,7 @@ from app.api.error_handlers import ApiError, setup_exception_handlers
 from app.api.media import router as media_router
 from app.core.database import AsyncSessionLocal, create_tables
 from app.crud import media_crud
+from app.middleware.content_type import StrictContentTypeMiddleware
 
 
 @asynccontextmanager
@@ -42,6 +43,9 @@ app = FastAPI(
 
 # Настраиваем обработчик ошибок
 setup_exception_handlers(app)
+
+# Регистрируем middleware для строгой проверки Content-Type
+app.add_middleware(StrictContentTypeMiddleware, allowed_types=["application/json"])
 
 # Регистрируем роутеры
 app.include_router(media_router, prefix="/media", tags=["media"])
