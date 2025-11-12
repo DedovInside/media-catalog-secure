@@ -14,16 +14,23 @@ _secrets_cache: Dict[str, dict] = {}
 
 
 def get_db_secrets() -> dict:
-    """Get database secrets with caching. Fails fast if secrets are unavailable."""
     env = os.getenv("ENV", "local").lower()
-
     if env in _secrets_cache:
         return _secrets_cache[env]
 
     if env in ("local", "test"):
         try:
-            client = hvac.Client(url=os.getenv("VAULT_ADDR", "http://127.0.0.1:8200"))
-            client.token = os.getenv("VAULT_TOKEN")
+            client = hvac.Client(url=os.getenv("VAULT_ADDR"))
+            vault_token = os.getenv("VAULT_TOKEN")
+            if os.path.exists("/run/secrets/vault_token"):
+                with open("/run/secrets/vault_token", "r") as f:
+                    vault_token = f.read().strip()
+            if not vault_token:
+                raise RuntimeError("VAULT_TOKEN not provided in env or /run/secrets/vault_token")
+
+            logger.debug(f"Using VAULT_TOKEN: {vault_token[:4]}... (truncated)")
+
+            client.token = vault_token
             if not client.is_authenticated():
                 raise RuntimeError("Vault authentication failed: invalid or missing VAULT_TOKEN")
 
@@ -33,12 +40,7 @@ def get_db_secrets() -> dict:
             )
             secrets = secret["data"]["data"]
         except Exception as e:
-            # НЕ используем fallback
-            raise RuntimeError(
-                f"Failed to load secrets from Vault for ENV={env}. "
-                f"Ensure Vault is running and VAULT_TOKEN is set. Original error: {e}"
-            ) from e
-
+            raise RuntimeError(f"Failed to load secrets from Vault for ENV={env}: {e}") from e
     elif env == "ci":
         required = ["DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT", "DB_NAME"]
         secrets = {}
@@ -47,7 +49,6 @@ def get_db_secrets() -> dict:
             if not value:
                 raise RuntimeError(f"Missing required CI secret: {var}")
             secrets[var] = value
-
     else:
         raise ValueError(f"Unknown ENV: {env}")
 

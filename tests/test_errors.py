@@ -35,7 +35,7 @@ def test_validation_error(client: TestClient):
 def test_content_type_validation_error(client: TestClient):
     """NEW: Test Content-Type middleware blocking"""
     # Тест специально для Content-Type middleware
-    r = client.post("/items", data='{"name": "test"}')  # БЕЗ Content-Type
+    r = client.post("/items", content='{"name": "test"}')  # БЕЗ Content-Type
     assert r.status_code == 415
     body = r.json()
 

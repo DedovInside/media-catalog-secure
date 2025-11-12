@@ -1,8 +1,90 @@
 services:
-  app:
-    build: .
-    ports:
-      - "8000:8000"
+  postgres:
+    image: postgres:15-alpine
+    container_name: media-postgres
+    restart: unless-stopped
     environment:
-      - PYTHONUNBUFFERED=1
-    profiles: ["dev"]
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-multi-db.sql:/docker-entrypoint-initdb.d/01-init-multi-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $(cat /run/secrets/postgres_user)"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    secrets:
+      - postgres_user
+      - postgres_password
+    networks:
+      - media-network
+
+  app:
+    build:
+      context: .
+      target: runtime
+    container_name: media-api
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      ENV: ${ENV:-local}
+      VAULT_ADDR: "http://host.docker.internal:8200"
+      SQL_ECHO: ${SQL_ECHO:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+    secrets:
+      - vault_token
+    networks:
+      - media-network
+
+  test:
+    build:
+      context: .
+      target: test
+    container_name: media-test
+    profiles: ["test"]
+    environment:
+      ENV: test
+      VAULT_ADDR: "http://host.docker.internal:8200"
+      SQL_ECHO: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["pytest", "-q"]
+    secrets:
+      - vault_token
+    networks:
+      - media-network
+
+networks:
+  media-network:
+    driver: bridge
+    name: media-network
+
+volumes:
+  postgres_data:
+    name: media-catalog-postgres-data
+
+secrets:
+  postgres_user:
+    file: ./secrets/postgres_user.txt
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  vault_token:
+    file: ./secrets/vault_token.txt

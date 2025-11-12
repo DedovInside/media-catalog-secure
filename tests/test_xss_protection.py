@@ -60,7 +60,9 @@ class TestContentTypeSecurity:
     def test_html_content_type_rejected(self, client):
         """Test HTML Content-Type is rejected"""
         response = client.post(
-            "/media", data="<html><body>test</body></html>", headers={"Content-Type": "text/html"}
+            "/media",
+            content="<html><body>test</body></html>",
+            headers={"Content-Type": "text/html"},
         )
         assert response.status_code == 415
         error = response.json()
@@ -70,14 +72,14 @@ class TestContentTypeSecurity:
         """Test XML Content-Type is rejected"""
         response = client.post(
             "/media",
-            data='<?xml version="1.0"?><media><title>test</title></media>',
+            content='<?xml version="1.0"?><media><title>test</title></media>',
             headers={"Content-Type": "application/xml"},
         )
         assert response.status_code == 415
 
     def test_missing_content_type_rejected(self, client):
         """Test missing Content-Type is rejected"""
-        response = client.post("/media", data='{"title": "test", "kind": "movie", "year": 2024}')
+        response = client.post("/media", content='{"title": "test", "kind": "movie", "year": 2024}')
         assert response.status_code == 415
 
 
@@ -108,3 +110,11 @@ class TestXSSNegativeScenarios:
 
             # No HTML parsing should occur
             assert "<script>" not in get_response.headers.get("content-type", "")
+
+            # Delete materials
+            delete_response = client.delete(f"/media/{media_id}")
+            assert delete_response.status_code == 204
+
+            # Checking
+            final_get_response = client.get(f"/media/{media_id}")
+            assert final_get_response.status_code == 404
