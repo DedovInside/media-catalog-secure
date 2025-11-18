@@ -153,8 +153,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: build-and-push
-    if: github.ref == 'refs/heads/main'
-    environment: staging
 
     steps:
       # C4. Скачиваем артефакт
