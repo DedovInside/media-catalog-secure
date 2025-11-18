@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # C1. Build и тесты с матрицей — оставляем как у тебя
+  # C1. Build и тесты с матрицей
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -131,15 +131,15 @@ jobs:
           target: runtime
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/media-catalog:latest
-            ghcr.io/${{ github.repository_owner }}/media-catalog:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/media-catalog-secure:latest
+            ghcr.io/${{ github.repository_owner }}/media-catalog-secure:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       # Дополнительно сохраняем как артефакт — для критериев P08
       - name: Save image as artifact
         run: |
-          docker save ghcr.io/${{ github.repository_owner }}/media-catalog:latest | gzip > media-catalog-latest.tar.gz
+          docker save ghcr.io/${{ github.repository_owner }}/media-catalog-secure:latest | gzip > media-catalog-latest.tar.gz
 
       - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
@@ -206,7 +206,7 @@ jobs:
             "branch": "${{ github.ref_name }}",
             "environment": "staging",
             "status": "success",
-            "image": "ghcr.io/${{ github.repository_owner }}/media-catalog:latest",
+            "image": "ghcr.io/${{ github.repository_owner }}/media-catalog-secure:latest",
             "deploy_url": "http://${{ secrets.DEPLOY_HOST }}:8000/docs",
             "deployer": "${{ github.actor }}"
           }
