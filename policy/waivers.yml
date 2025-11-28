@@ -1,0 +1,65 @@
+# Политика управления уязвимостями Media Catalog Secure
+policy:
+  description: "Vulnerability management policy for Media Catalog Secure project"
+  version: "1.0.0"
+  last_updated: "2025-11-28"
+  
+  # Пороги по severity для принятия решений
+  severity_thresholds:
+    critical:
+      action: "immediate_fix"
+      max_days: 7
+      requires_approval: false
+    high:
+      action: "fix_within_30_days"
+      max_days: 30
+      requires_approval: true
+    medium:
+      action: "fix_within_90_days"
+      max_days: 90
+      requires_approval: true
+    low:
+      action: "monitor"
+      max_days: 365
+      requires_approval: false
+
+# Список исключений (waivers) для принятых рисков
+waivers: []
+
+# Примеры структуры waivers (закомментированы для демонстрации):
+# waivers:
+#   - id: "CVE-2024-12345"
+#     package: "urllib3"
+#     version: "2.0.7"
+#     severity: "High"
+#     reason: "Транзитивная зависимость от requests. Уязвимость касается только HTTP-прокси, которые не используются в нашем приложении."
+#     mitigation: "Приложение не использует HTTP-прокси функциональность urllib3"
+#     issue: "https://github.com/DedovInside/media-catalog-secure/issues/123"
+#     approved_by: "security-team@example.org"
+#     expires_at: "2025-12-31"
+#     review_notes: "Планируется обновление до urllib3 2.1.x в Q1 2025"
+#     created_at: "2025-11-28"
+
+# Шаблон для новых waivers:
+waiver_template: |
+  - id: "CVE-YYYY-NNNNN"           # CVE ID или другой идентификатор уязвимости
+    package: "package-name"         # Имя пакета
+    version: "x.y.z"               # Версия пакета
+    severity: "High/Medium/Low"     # Уровень критичности
+    reason: "Обоснование waiver"    # Почему принимается риск
+    mitigation: "Меры снижения"     # Какие меры приняты для снижения риска
+    issue: "https://github.com/.../issues/N"  # Ссылка на issue для отслеживания
+    approved_by: "email@example.org"  # Кто одобрил waiver
+    expires_at: "YYYY-MM-DD"        # Дата пересмотра waiver
+    review_notes: "Дополнительные заметки"  # Планы по устранению
+    created_at: "YYYY-MM-DD"        # Дата создания waiver
+
+# История принятых и устраненных waivers
+resolved_waivers: []
+# Пример:
+# resolved_waivers:
+#   - id: "CVE-2024-OLD"
+#     package: "old-package" 
+#     resolution: "updated_to_version_1.2.3"
+#     resolved_at: "2025-11-15"
+#     resolved_by: "developer@example.org"
