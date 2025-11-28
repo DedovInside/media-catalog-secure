@@ -39,45 +39,68 @@ jobs:
       # C1: Генерация SBOM с фиксированной версией инструмента
       - name: Generate SBOM with Syft (CycloneDX format)
         run: |
-          echo "Generating Software Bill of Materials (SBOM)..."
-          
-          # Используем фиксированную версию для воспроизводимости
-          docker run --rm \
+            echo "Generating Software Bill of Materials (SBOM)..."
+            
+            # Используем фиксированную версию для воспроизводимости
+            # ИСПРАВЛЕНИЕ: разделяем stderr и stdout для чистого JSON
+            docker run --rm \
             -v $PWD:/work \
             -w /work \
             anchore/syft:v1.14.0 \
             packages dir:. \
             -o cyclonedx-json \
+            2>/dev/null \
             > EVIDENCE/P09/sbom.json
-          
-          echo "SBOM generated successfully"
-          echo "SBOM size: $(du -h EVIDENCE/P09/sbom.json | cut -f1)"
-          
-          # Краткая валидация SBOM
-          if jq -e '.components | length' EVIDENCE/P09/sbom.json > /dev/null; then
-            component_count=$(jq '.components | length' EVIDENCE/P09/sbom.json)
+            
+            echo "SBOM generated successfully"
+            echo "SBOM size: $(du -h EVIDENCE/P09/sbom.json | cut -f1)"
+            
+            # Краткая валидация SBOM
+            if jq -e '.bomFormat' EVIDENCE/P09/sbom.json > /dev/null 2>&1; then
+            component_count=$(jq '.components | length' EVIDENCE/P09/sbom.json 2>/dev/null || echo "0")
             echo "Found $component_count components in SBOM"
-          else
-            echo "Invalid SBOM format"
+            echo "SBOM format: $(jq -r '.bomFormat' EVIDENCE/P09/sbom.json)"
+            echo "SBOM version: $(jq -r '.specVersion' EVIDENCE/P09/sbom.json)"
+            else
+            echo "Invalid SBOM format - checking file content:"
+            echo "File size: $(wc -c < EVIDENCE/P09/sbom.json) bytes"
+            echo "First 200 chars:"
+            head -c 200 EVIDENCE/P09/sbom.json
             exit 1
-          fi
+            fi
 
-      # C2: SCA сканирование на основе SBOM
+        # C2: SCA сканирование на основе SBOM  
       - name: Run SCA scan with Grype
         run: |
-          echo "Starting Security Component Analysis (SCA)..."
-          
-          # Запускаем Grype с фиксированной версией
-          docker run --rm \
+            echo "Starting Security Component Analysis (SCA)..."
+            
+            # Проверяем что SBOM валиден перед сканированием
+            if ! jq -e '.bomFormat' EVIDENCE/P09/sbom.json > /dev/null 2>&1; then
+            echo "SBOM file is invalid, cannot proceed with SCA scan"
+            exit 1
+            fi
+            
+            # ИСПРАВЛЕНИЕ: используем правильный путь и подавляем debug вывод  
+            docker run --rm \
             -v $PWD:/work \
             -w /work \
             anchore/grype:v0.74.7 \
             sbom:/work/EVIDENCE/P09/sbom.json \
             -o json \
+            --quiet \
+            2>/dev/null \
             > EVIDENCE/P09/sca_report.json
-          
-          echo "SCA scan completed"
-          echo "Report size: $(du -h EVIDENCE/P09/sca_report.json | cut -f1)"
+            
+            echo "SCA scan completed"
+            echo "Report size: $(du -h EVIDENCE/P09/sca_report.json | cut -f1)"
+            
+            # Валидируем что отчет содержит ожидаемую структуру
+            if jq -e '.matches' EVIDENCE/P09/sca_report.json > /dev/null 2>&1; then
+            match_count=$(jq '.matches | length' EVIDENCE/P09/sca_report.json)
+            echo "Found $match_count vulnerability matches"
+            else
+            echo "No matches found or invalid report format"
+            fi
 
       # C2: Создание читаемой сводки по уязвимостям
       - name: Generate SCA summary report
