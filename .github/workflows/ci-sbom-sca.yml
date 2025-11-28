@@ -74,13 +74,47 @@ jobs:
         run: |
             echo "Starting Security Component Analysis (SCA)..."
             
-            # Проверяем что SBOM валиден перед сканированием
-            if ! jq -e '.bomFormat' EVIDENCE/P09/sbom.json > /dev/null 2>&1; then
-            echo "SBOM file is invalid, cannot proceed with SCA scan"
+            # ДОБАВЛЯЕМ ДЕТАЛЬНУЮ ДИАГНОСТИКУ
+            echo "=== SBOM File Diagnostics ==="
+            echo "File exists: $(test -f EVIDENCE/P09/sbom.json && echo 'YES' || echo 'NO')"
+            echo "File size: $(wc -c < EVIDENCE/P09/sbom.json 2>/dev/null || echo '0') bytes"
+            
+            if [ -f "EVIDENCE/P09/sbom.json" ]; then
+            echo "File permissions: $(ls -la EVIDENCE/P09/sbom.json)"
+            echo "First 300 characters:"
+            head -c 300 EVIDENCE/P09/sbom.json || echo "Cannot read file"
+            echo ""
+            echo "JSON validation check:"
+            if jq empty EVIDENCE/P09/sbom.json 2>&1; then
+                echo "Valid JSON structure"
+            else
+                echo "Invalid JSON - showing validation error:"
+                jq empty EVIDENCE/P09/sbom.json
+                exit 1
+            fi
+            
+            echo "bomFormat check:"
+            if jq -e '.bomFormat' EVIDENCE/P09/sbom.json > /dev/null 2>&1; then
+                echo "bomFormat field found: $(jq -r '.bomFormat' EVIDENCE/P09/sbom.json)"
+                echo "specVersion: $(jq -r '.specVersion' EVIDENCE/P09/sbom.json)"
+                echo "Components count: $(jq '.components | length' EVIDENCE/P09/sbom.json)"
+            else
+                echo "bomFormat field missing or invalid"
+                echo "Available top-level keys:"
+                jq 'keys' EVIDENCE/P09/sbom.json
+                exit 1
+            fi
+            else
+            echo "SBOM file does not exist!"
+            echo "Contents of EVIDENCE/P09/:"
+            ls -la EVIDENCE/P09/ || echo "Directory does not exist"
             exit 1
             fi
             
-            # ИСПРАВЛЕНИЕ: используем правильный путь и подавляем debug вывод  
+            echo "=== Starting Grype Scan ==="
+            # ИСПРАВЛЕНИЕ: используем правильный путь и добавляем более детальную обработку ошибок
+            set +e  # Временно отключаем exit on error для диагностики
+            
             docker run --rm \
             -v $PWD:/work \
             -w /work \
@@ -88,18 +122,57 @@ jobs:
             sbom:/work/EVIDENCE/P09/sbom.json \
             -o json \
             --quiet \
-            2>/dev/null \
-            > EVIDENCE/P09/sca_report.json
+            > EVIDENCE/P09/sca_report.json 2>grype_errors.log
+            
+            grype_exit_code=$?
+            
+            echo "Grype exit code: $grype_exit_code"
+            
+            if [ $grype_exit_code -ne 0 ]; then
+            echo "Grype scan failed!"
+            echo "Error output:"
+            cat grype_errors.log || echo "No error file found"
+            echo ""
+            echo "Trying alternative approach with direct file scan..."
+            
+            # Fallback: прямое сканирование без SBOM
+            docker run --rm \
+                -v $PWD:/work \
+                -w /work \
+                anchore/grype:v0.74.7 \
+                dir:. \
+                -o json \
+                --quiet \
+                > EVIDENCE/P09/sca_report_fallback.json 2>/dev/null || true
+            
+            if [ -f "EVIDENCE/P09/sca_report_fallback.json" ] && [ -s "EVIDENCE/P09/sca_report_fallback.json" ]; then
+                echo "Fallback scan successful, using fallback report"
+                mv EVIDENCE/P09/sca_report_fallback.json EVIDENCE/P09/sca_report.json
+            else
+                echo "Both SBOM and fallback scans failed"
+                exit 1
+            fi
+            fi
+            
+            set -e  # Включаем обратно exit on error
             
             echo "SCA scan completed"
             echo "Report size: $(du -h EVIDENCE/P09/sca_report.json | cut -f1)"
             
             # Валидируем что отчет содержит ожидаемую структуру
+            if [ -f "EVIDENCE/P09/sca_report.json" ] && [ -s "EVIDENCE/P09/sca_report.json" ]; then
+            echo "Validating SCA report structure..."
             if jq -e '.matches' EVIDENCE/P09/sca_report.json > /dev/null 2>&1; then
-            match_count=$(jq '.matches | length' EVIDENCE/P09/sca_report.json)
-            echo "Found $match_count vulnerability matches"
+                match_count=$(jq '.matches | length' EVIDENCE/P09/sca_report.json)
+                echo "Found $match_count vulnerability matches"
             else
-            echo "No matches found or invalid report format"
+                echo "No matches found or different report format"
+                echo "Report keys: $(jq 'keys' EVIDENCE/P09/sca_report.json)"
+            fi
+            else
+            echo "SCA report file is empty or missing"
+            ls -la EVIDENCE/P09/
+            exit 1
             fi
 
       # C2: Создание читаемой сводки по уязвимостям
