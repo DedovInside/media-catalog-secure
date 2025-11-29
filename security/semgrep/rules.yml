@@ -15,7 +15,6 @@ rules:
       cwe: "CWE-89: SQL Injection"
       confidence: HIGH
       impact: HIGH
-
       nfr: "NFR-04"          # Из NFR.md
       risk: "R06"            # Из RISKS.md - SQL injection
       stride: "TID"          # Tampering, Information Disclosure, Denial of Service
@@ -104,8 +103,8 @@ rules:
       - pattern-either:
           - pattern: raise ApiError(..., message=f"Media with id {$ID} not found", ...)
           - pattern: raise ApiError(..., message=f"User {$USER} ...", ...)
-          - pattern: return {"error": f"Database error: {$ERROR}"}
-          - pattern: logger.error(f"Failed for user {$USER_ID}: {$DETAILS}")
+          - pattern: return {"error" f"Database error {$ERROR}"}
+          - pattern: logger.error(f"Failed for user {$USER_ID} {$DETAILS}")
     metadata:
       category: security
       cwe: "CWE-209: Information Exposure Through Error Messages"
@@ -200,10 +199,10 @@ rules:
     severity: WARNING
     patterns:
       - pattern-either:
-          - pattern: logger.$LEVEL(f"User password: {$PASS}")
-          - pattern: logger.$LEVEL(f"Token: {$TOKEN}")
-          - pattern: logger.$LEVEL(f"Secret: {$SECRET}")
-          - pattern: print(f"Database URL: {$DB_URL}")
+          - pattern: logger.$LEVEL(f"User password {$PASS}")
+          - pattern: logger.$LEVEL(f"Token {$TOKEN}")
+          - pattern: logger.$LEVEL(f"Secret {$SECRET}")
+          - pattern: print(f"Database URL {$DB_URL}")
     metadata:
       category: security
       cwe: "CWE-532: Information Exposure Through Log Files"
