@@ -119,7 +119,7 @@ jobs:
           docker run --rm \
             -v $PWD:/work \
             -w /work \
-            aquasecurity/trivy:latest \
+            aquasec/trivy:latest \
             sbom /work/EVIDENCE/P09/sbom.json \
             --vuln-type library \
             --format json \
