@@ -1,0 +1,20 @@
+{
+  "scan_date": "2025-11-29T19:21:37+00:00",
+  "commit_sha": "81cf42be375f9d1f1a25412d46756c067d68fc40",
+  "commit_ref": "p10-sast-secrets",
+  "workflow_run_id": "19788247442",
+  "workflow_run_url": "https://github.com/DedovInside/media-catalog-secure/actions/runs/19788247442",
+  "tools": {
+    "sast_scanner": "returntocorp/semgrep:1.45.0",
+    "secrets_scanner": "zricethezav/gitleaks:v8.18.0",
+    "sast_config": ["p/ci", "security/semgrep/rules.yml"],
+    "secrets_config": "security/.gitleaks.toml"
+  },
+  "analysis_scope": {
+    "file_types": ["python", "yaml", "json", "toml"],
+    "custom_rules": 5,
+    "secrets_allowlist_entries": 10
+  },
+  "repository": "DedovInside/media-catalog-secure",
+  "actor": "DedovInside"
+}
