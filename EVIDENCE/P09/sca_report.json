@@ -1,0 +1,185 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2025-11-29T13:32:43.559948902Z",
+  "ArtifactName": "/work/EVIDENCE/P09/sbom.json",
+  "ArtifactType": "cyclonedx",
+  "Results": [
+    {
+      "Target": "Python",
+      "Class": "lang-pkgs",
+      "Type": "python-pkg",
+      "Packages": [
+        {
+          "ID": "alembic@1.12.1",
+          "Name": "alembic",
+          "Identifier": {
+            "PURL": "pkg:pypi/alembic@1.12.1",
+            "UID": "23956eb8389e572c",
+            "BOMRef": "pkg:pypi/alembic@1.12.1?package-id=6f9a8ecc157a68bd"
+          },
+          "Version": "1.12.1"
+        },
+        {
+          "ID": "asyncpg@0.29.0",
+          "Name": "asyncpg",
+          "Identifier": {
+            "PURL": "pkg:pypi/asyncpg@0.29.0",
+            "UID": "3f9a7078c4b90407",
+            "BOMRef": "pkg:pypi/asyncpg@0.29.0?package-id=f548580061e5003f"
+          },
+          "Version": "0.29.0"
+        },
+        {
+          "ID": "bandit@1.7.10",
+          "Name": "bandit",
+          "Identifier": {
+            "PURL": "pkg:pypi/bandit@1.7.10",
+            "UID": "2882b8acd1148719",
+            "BOMRef": "pkg:pypi/bandit@1.7.10?package-id=95e03bf46727de53"
+          },
+          "Version": "1.7.10"
+        },
+        {
+          "ID": "black@24.8.0",
+          "Name": "black",
+          "Identifier": {
+            "PURL": "pkg:pypi/black@24.8.0",
+            "UID": "ae84fbfffcf0a176",
+            "BOMRef": "pkg:pypi/black@24.8.0?package-id=67a0d8223ec7a31d"
+          },
+          "Version": "24.8.0"
+        },
+        {
+          "ID": "detect-secrets@1.5.0",
+          "Name": "detect-secrets",
+          "Identifier": {
+            "PURL": "pkg:pypi/detect-secrets@1.5.0",
+            "UID": "2d0a868ab1f0c914",
+            "BOMRef": "pkg:pypi/detect-secrets@1.5.0?package-id=4d14a0694a6c4702"
+          },
+          "Version": "1.5.0"
+        },
+        {
+          "ID": "fastapi@0.112.2",
+          "Name": "fastapi",
+          "Identifier": {
+            "PURL": "pkg:pypi/fastapi@0.112.2",
+            "UID": "280728e77c219e0d",
+            "BOMRef": "pkg:pypi/fastapi@0.112.2?package-id=0b5351151f43a786"
+          },
+          "Version": "0.112.2"
+        },
+        {
+          "ID": "httpx@0.27.2",
+          "Name": "httpx",
+          "Identifier": {
+            "PURL": "pkg:pypi/httpx@0.27.2",
+            "UID": "4bd2d22cd46ee7a5",
+            "BOMRef": "pkg:pypi/httpx@0.27.2?package-id=196b2b0268df8faf"
+          },
+          "Version": "0.27.2"
+        },
+        {
+          "ID": "hvac@2.1.0",
+          "Name": "hvac",
+          "Identifier": {
+            "PURL": "pkg:pypi/hvac@2.1.0",
+            "UID": "24bf990115feb6b",
+            "BOMRef": "pkg:pypi/hvac@2.1.0?package-id=f2aef9d006624dcc"
+          },
+          "Version": "2.1.0"
+        },
+        {
+          "ID": "isort@5.13.2",
+          "Name": "isort",
+          "Identifier": {
+            "PURL": "pkg:pypi/isort@5.13.2",
+            "UID": "ab0e1ddc3c2ae3df",
+            "BOMRef": "pkg:pypi/isort@5.13.2?package-id=cee1876d04d1e335"
+          },
+          "Version": "5.13.2"
+        },
+        {
+          "ID": "pre-commit@3.8.0",
+          "Name": "pre-commit",
+          "Identifier": {
+            "PURL": "pkg:pypi/pre-commit@3.8.0",
+            "UID": "b17a36b5ccf66b5d",
+            "BOMRef": "pkg:pypi/pre-commit@3.8.0?package-id=28c17f027229e6f4"
+          },
+          "Version": "3.8.0"
+        },
+        {
+          "ID": "psycopg2-binary@2.9.9",
+          "Name": "psycopg2-binary",
+          "Identifier": {
+            "PURL": "pkg:pypi/psycopg2-binary@2.9.9",
+            "UID": "236a00367ac9e30a",
+            "BOMRef": "pkg:pypi/psycopg2-binary@2.9.9?package-id=9ac53a8ef6218a6e"
+          },
+          "Version": "2.9.9"
+        },
+        {
+          "ID": "pytest@8.2.2",
+          "Name": "pytest",
+          "Identifier": {
+            "PURL": "pkg:pypi/pytest@8.2.2",
+            "UID": "a8247a48a72b1486",
+            "BOMRef": "pkg:pypi/pytest@8.2.2?package-id=3411bd32c4aa0cf5"
+          },
+          "Version": "8.2.2"
+        },
+        {
+          "ID": "pytest-asyncio@0.21.1",
+          "Name": "pytest-asyncio",
+          "Identifier": {
+            "PURL": "pkg:pypi/pytest-asyncio@0.21.1",
+            "UID": "bd688129f8b95b51",
+            "BOMRef": "pkg:pypi/pytest-asyncio@0.21.1?package-id=2bc38232849f422e"
+          },
+          "Version": "0.21.1"
+        },
+        {
+          "ID": "pytest-cov@4.1.0",
+          "Name": "pytest-cov",
+          "Identifier": {
+            "PURL": "pkg:pypi/pytest-cov@4.1.0",
+            "UID": "95330df2c220d80e",
+            "BOMRef": "pkg:pypi/pytest-cov@4.1.0?package-id=5218b17e63c8ba8d"
+          },
+          "Version": "4.1.0"
+        },
+        {
+          "ID": "ruff@0.6.9",
+          "Name": "ruff",
+          "Identifier": {
+            "PURL": "pkg:pypi/ruff@0.6.9",
+            "UID": "9fc01cfc82fb3641",
+            "BOMRef": "pkg:pypi/ruff@0.6.9?package-id=06dab8388dff7f22"
+          },
+          "Version": "0.6.9"
+        },
+        {
+          "ID": "sqlalchemy@2.0.23",
+          "Name": "sqlalchemy",
+          "Identifier": {
+            "PURL": "pkg:pypi/sqlalchemy@2.0.23",
+            "UID": "ad67b0132826db85",
+            "BOMRef": "pkg:pypi/sqlalchemy@2.0.23?package-id=e4ddcfaf445a1afd"
+          },
+          "Version": "2.0.23"
+        },
+        {
+          "ID": "uvicorn@0.30.5",
+          "Name": "uvicorn",
+          "Identifier": {
+            "PURL": "pkg:pypi/uvicorn@0.30.5",
+            "UID": "867b439496b586be",
+            "BOMRef": "pkg:pypi/uvicorn@0.30.5?package-id=9108c96e6d0bc04f"
+          },
+          "Version": "0.30.5"
+        }
+      ]
+    }
+  ]
+}

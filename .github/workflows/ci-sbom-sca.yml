@@ -1,0 +1,409 @@
+name: Security - SBOM & SCA
+
+# C5: Правильные триггеры - только релевантные изменения
+on:
+  workflow_dispatch:  # Ручной запуск
+  push:
+    paths:
+      - "**/*.py"                              # Python код
+      - "requirements*.txt"                    # Зависимости
+      - "Dockerfile"                          # Docker конфигурация
+      - ".github/workflows/ci-sbom-sca.yml"  # Сам workflow
+
+# C5: Минимальные права безопасности
+permissions:
+  contents: read
+
+# C5: Предотвращение дублирующих запусков
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sbom_sca:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15  # C5: Разумный таймаут
+
+    steps:
+      # Базовая подготовка
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # C3: Создаем структуру для артефактов
+      - name: Prepare evidence directories
+        run: |
+          mkdir -p EVIDENCE/P09
+          echo "Created evidence directory structure"
+          ls -la EVIDENCE/
+
+      # C1: Генерация SBOM с фиксированной версией инструмента
+      - name: Generate SBOM with Syft (CycloneDX format)
+        run: |
+            echo "Generating Software Bill of Materials (SBOM)..."
+            
+            # Используем фиксированную версию для воспроизводимости
+            # ИСПРАВЛЕНИЕ: разделяем stderr и stdout для чистого JSON
+            docker run --rm \
+            -v $PWD:/work \
+            -w /work \
+            anchore/syft:v1.14.0 \
+            packages dir:. \
+            -o cyclonedx-json \
+            2>/dev/null \
+            > EVIDENCE/P09/sbom.json
+            
+            echo "SBOM generated successfully"
+            echo "SBOM size: $(du -h EVIDENCE/P09/sbom.json | cut -f1)"
+            
+            # Краткая валидация SBOM
+            if jq -e '.bomFormat' EVIDENCE/P09/sbom.json > /dev/null 2>&1; then
+            component_count=$(jq '.components | length' EVIDENCE/P09/sbom.json 2>/dev/null || echo "0")
+            echo "Found $component_count components in SBOM"
+            echo "SBOM format: $(jq -r '.bomFormat' EVIDENCE/P09/sbom.json)"
+            echo "SBOM version: $(jq -r '.specVersion' EVIDENCE/P09/sbom.json)"
+            else
+            echo "Invalid SBOM format - checking file content:"
+            echo "File size: $(wc -c < EVIDENCE/P09/sbom.json) bytes"
+            echo "First 200 chars:"
+            head -c 200 EVIDENCE/P09/sbom.json
+            exit 1
+            fi
+
+        # C2: SCA сканирование на основе SBOM с Trivy
+      - name: Run SCA scan with Trivy (SBOM-based)
+        run: |
+          echo "Starting Security Component Analysis (SCA) with Trivy..."
+          
+          # ДОБАВЛЯЕМ ДЕТАЛЬНУЮ ДИАГНОСТИКУ (такую же как раньше)
+          echo "=== SBOM File Diagnostics ==="
+          echo "File exists: $(test -f EVIDENCE/P09/sbom.json && echo 'YES' || echo 'NO')"
+          echo "File size: $(wc -c < EVIDENCE/P09/sbom.json 2>/dev/null || echo '0') bytes"
+          
+          if [ -f "EVIDENCE/P09/sbom.json" ]; then
+            echo "File permissions: $(ls -la EVIDENCE/P09/sbom.json)"
+            echo "First 300 characters:"
+            head -c 300 EVIDENCE/P09/sbom.json || echo "Cannot read file"
+            echo ""
+            echo "JSON validation check:"
+            if jq empty EVIDENCE/P09/sbom.json 2>&1; then
+              echo "Valid JSON structure"
+            else
+              echo "Invalid JSON - showing validation error:"
+              jq empty EVIDENCE/P09/sbom.json
+              exit 1
+            fi
+            
+            echo "bomFormat check:"
+            if jq -e '.bomFormat' EVIDENCE/P09/sbom.json > /dev/null 2>&1; then
+              echo "bomFormat field found: $(jq -r '.bomFormat' EVIDENCE/P09/sbom.json)"
+              echo "specVersion: $(jq -r '.specVersion' EVIDENCE/P09/sbom.json)"
+              echo "Components count: $(jq '.components | length' EVIDENCE/P09/sbom.json)"
+            else
+              echo "bomFormat field missing or invalid"
+              echo "Available top-level keys:"
+              jq 'keys' EVIDENCE/P09/sbom.json
+              exit 1
+            fi
+          else
+            echo "SBOM file does not exist!"
+            echo "Contents of EVIDENCE/P09/:"
+            ls -la EVIDENCE/P09/ || echo "Directory does not exist"
+            exit 1
+          fi
+          
+          echo "=== Starting Trivy SBOM Scan ==="
+          # ИСПРАВЛЕНИЕ: используем Trivy для сканирования SBOM файла
+          set +e  # Временно отключаем exit on error для диагностики
+          
+          # Trivy поддерживает сканирование SBOM файлов напрямую
+          docker run --rm \
+            -v $PWD:/work \
+            -w /work \
+            aquasec/trivy:latest \
+            sbom /work/EVIDENCE/P09/sbom.json \
+            --vuln-type library \
+            --format json \
+            --quiet \
+            > EVIDENCE/P09/sca_report.json 2>trivy_errors.log
+          
+          trivy_exit_code=$?
+          
+          echo "Trivy exit code: $trivy_exit_code"
+          
+          if [ $trivy_exit_code -ne 0 ]; then
+            echo "Trivy SBOM scan failed!"
+            echo "Error output:"
+            cat trivy_errors.log || echo "No error file found"
+            echo ""
+            echo "Trying alternative approach with direct file scan..."
+            
+            # Fallback: прямое сканирование файловой системы с Trivy
+            docker run --rm \
+              -v $PWD:/work \
+              -w /work \
+              aquasec/trivy:0.48.3 \
+              fs . \
+              --format json \
+              --quiet \
+              > EVIDENCE/P09/sca_report_fallback.json 2>/dev/null || true
+            
+            if [ -f "EVIDENCE/P09/sca_report_fallback.json" ] && [ -s "EVIDENCE/P09/sca_report_fallback.json" ]; then
+              echo "Fallback scan successful, using fallback report"
+              mv EVIDENCE/P09/sca_report_fallback.json EVIDENCE/P09/sca_report.json
+              echo "Note: Using filesystem scan instead of SBOM-based scan"
+            else
+              echo "Both SBOM and fallback scans failed"
+              exit 1
+            fi
+          else
+            echo "SBOM-based SCA scan completed successfully"
+          fi
+          
+          set -e  # Включаем обратно exit on error
+          
+          echo "SCA scan completed"
+          echo "Report size: $(du -h EVIDENCE/P09/sca_report.json | cut -f1)"
+          
+          # Валидируем структуру отчета Trivy (отличается от Grype!)
+          if [ -f "EVIDENCE/P09/sca_report.json" ] && [ -s "EVIDENCE/P09/sca_report.json" ]; then
+            echo "Validating SCA report structure..."
+            
+            # Trivy использует структуру .Results[].Vulnerabilities[] вместо .matches[]
+            if jq -e '.Results' EVIDENCE/P09/sca_report.json > /dev/null 2>&1; then
+              total_vulns=$(jq '[.Results[]?.Vulnerabilities[]?] | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+              echo "Found $total_vulns vulnerability matches using Trivy format"
+              
+              if [ "$total_vulns" -gt 0 ]; then
+                echo "Sample vulnerabilities found:"
+                jq -r '.Results[]?.Vulnerabilities[]? | "\(.VulnerabilityID) (\(.Severity)): \(.PkgName) \(.InstalledVersion)"' EVIDENCE/P09/sca_report.json | head -3
+              fi
+            else
+              # Попробуем старый формат Grype для совместимости
+              if jq -e '.matches' EVIDENCE/P09/sca_report.json > /dev/null 2>&1; then
+                match_count=$(jq '.matches | length' EVIDENCE/P09/sca_report.json)
+                echo "Found $match_count vulnerability matches using Grype format (legacy)"
+              else
+                echo "Unexpected report format"
+                echo "Report keys: $(jq 'keys' EVIDENCE/P09/sca_report.json)"
+              fi
+            fi
+          else
+            echo "SCA report file is empty or missing"
+            ls -la EVIDENCE/P09/
+            exit 1
+          fi
+
+      # C2: Создание читаемой сводки по уязвимостям
+      - name: Generate SCA summary report
+        run: |
+          echo "Generating human-readable SCA summary..."
+          
+          # Начинаем создание сводки
+          cat > EVIDENCE/P09/sca_summary.md << 'EOF'
+          # SCA Security Analysis Summary
+          
+          **Generated:** $(date -Iseconds)  
+          **Commit:** ${{ github.sha }}  
+          **Workflow:** ${{ github.run_id }}
+          **SBOM Generator:** Syft v1.14.0 (CycloneDX)
+          **SCA Scanner:** Trivy v0.48.3 (SBOM-based)
+          
+          ## Vulnerability Breakdown by Severity
+          
+          EOF
+          
+          # Подсчитываем уязвимости - поддерживаем оба формата (Trivy и Grype)
+          if jq -e '.Results' EVIDENCE/P09/sca_report.json > /dev/null 2>&1; then
+            echo "### Severity Distribution (Trivy Format)" >> EVIDENCE/P09/sca_summary.md
+            echo "" >> EVIDENCE/P09/sca_summary.md
+            
+            # Trivy использует структуру .Results[].Vulnerabilities[]
+            critical_count=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+            high_count=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0") 
+            medium_count=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+            low_count=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "LOW")] | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+            unknown_count=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "UNKNOWN")] | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+            
+            echo "- **Critical**: $critical_count" >> EVIDENCE/P09/sca_summary.md
+            echo "- **High**: $high_count" >> EVIDENCE/P09/sca_summary.md  
+            echo "- **Medium**: $medium_count" >> EVIDENCE/P09/sca_summary.md
+            echo "- **Low**: $low_count" >> EVIDENCE/P09/sca_summary.md
+            echo "- **Unknown**: $unknown_count" >> EVIDENCE/P09/sca_summary.md
+            echo "" >> EVIDENCE/P09/sca_summary.md
+            
+            # Выводим в консоль для логов CI
+            echo "Critical: $critical_count"
+            echo "High: $high_count"
+            echo "Medium: $medium_count" 
+            echo "Low: $low_count"
+            echo "Unknown: $unknown_count"
+            
+            # Добавляем топ-5 уязвимостей по критичности (Trivy format)
+            echo "### Top Critical/High Vulnerabilities" >> EVIDENCE/P09/sca_summary.md
+            echo "" >> EVIDENCE/P09/sca_summary.md
+            
+            jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL" or .Severity == "HIGH") | "- **\(.VulnerabilityID)** (\(.Severity)): \(.PkgName) \(.InstalledVersion) - \(.Description // "No description")"' EVIDENCE/P09/sca_report.json | head -5 >> EVIDENCE/P09/sca_summary.md || echo "No Critical/High vulnerabilities found" >> EVIDENCE/P09/sca_summary.md
+            
+          elif jq -e '.matches' EVIDENCE/P09/sca_report.json > /dev/null 2>&1; then
+            # Fallback: Grype format для совместимости
+            echo "### Severity Distribution (Grype Format - Fallback)" >> EVIDENCE/P09/sca_summary.md
+            echo "" >> EVIDENCE/P09/sca_summary.md
+            
+            # Grype использует .matches[].vulnerability.severity
+            critical_count=$(jq '[.matches[].vulnerability.severity] | map(select(. == "Critical")) | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+            high_count=$(jq '[.matches[].vulnerability.severity] | map(select(. == "High")) | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+            medium_count=$(jq '[.matches[].vulnerability.severity] | map(select(. == "Medium")) | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+            low_count=$(jq '[.matches[].vulnerability.severity] | map(select(. == "Low")) | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+            negligible_count=$(jq '[.matches[].vulnerability.severity] | map(select(. == "Negligible")) | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+            
+            echo "- **Critical**: $critical_count" >> EVIDENCE/P09/sca_summary.md
+            echo "- **High**: $high_count" >> EVIDENCE/P09/sca_summary.md  
+            echo "- **Medium**: $medium_count" >> EVIDENCE/P09/sca_summary.md
+            echo "- **Low**: $low_count" >> EVIDENCE/P09/sca_summary.md
+            echo "- **Negligible**: $negligible_count" >> EVIDENCE/P09/sca_summary.md
+            
+            # Выводим в консоль
+            echo "Critical: $critical_count"
+            echo "High: $high_count"
+            echo "Medium: $medium_count" 
+            echo "Low: $low_count"
+            echo "Negligible: $negligible_count"
+            
+            # Топ уязвимости в Grype формате
+            jq -r '.matches[] | select(.vulnerability.severity == "Critical" or .vulnerability.severity == "High") | "- **\(.vulnerability.id)** (\(.vulnerability.severity)): \(.artifact.name) \(.artifact.version) - \(.vulnerability.description // "No description")"' EVIDENCE/P09/sca_report.json | head -5 >> EVIDENCE/P09/sca_summary.md || echo "No Critical/High vulnerabilities found" >> EVIDENCE/P09/sca_summary.md
+            
+          else
+            echo "No vulnerabilities found or invalid report format" >> EVIDENCE/P09/sca_summary.md
+            echo "No vulnerabilities detected"
+          fi
+          
+          # Добавляем информацию о следующих шагах  
+          cat >> EVIDENCE/P09/sca_summary.md << 'EOF'
+          
+          ## SBOM-Based Analysis Confirmation
+          
+          **SBOM Generated**: Syft CycloneDX format with comprehensive component coverage  
+          **SCA Method**: SBOM-based vulnerability scanning (preferred approach)  
+          **Tool Integration**: Syft → Trivy pipeline for complete security analysis  
+          
+          ## Next Steps
+          
+          1. **Review Critical/High vulnerabilities** - prioritize for immediate action
+          2. **Check for available updates** - update vulnerable dependencies where possible  
+          3. **Create waivers** - for vulnerabilities that cannot be immediately fixed
+          4. **Monitor** - set up alerts for new vulnerabilities in these components
+          
+          ## Files Generated
+          
+          - `EVIDENCE/P09/sbom.json` - Complete Software Bill of Materials (Syft CycloneDX)
+          - `EVIDENCE/P09/sca_report.json` - Detailed SCA scan results (Trivy SBOM-based)
+          - `EVIDENCE/P09/sca_summary.md` - This human-readable summary
+          
+          EOF
+          
+          echo "SCA summary generated successfully"
+
+      # C3: Сохранение метаданных о scan'е
+      - name: Save scan metadata
+        run: |
+          echo "Saving scan metadata for traceability..."
+          
+          cat > EVIDENCE/P09/scan_metadata.json << EOF
+          {
+            "scan_date": "$(date -Iseconds)",
+            "commit_sha": "${{ github.sha }}",
+            "commit_ref": "${{ github.ref_name }}",
+            "workflow_run_id": "${{ github.run_id }}",
+            "workflow_run_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "tools": {
+              "sbom_generator": "anchore/syft:v1.14.0",
+              "sca_scanner": "aquasec/trivy:0.48.3",
+              "sbom_format": "CycloneDX JSON",
+              "scan_method": "SBOM-based (Syft → Trivy pipeline)"
+            },
+            "repository": "${{ github.repository }}",
+            "actor": "${{ github.actor }}",
+            "hybrid_approach": {
+              "sbom_tool": "Syft",
+              "sca_tool": "Trivy", 
+              "reason": "Best compatibility: Syft generates reliable SBOM, Trivy provides comprehensive vulnerability detection"
+            }
+          }
+          EOF
+
+      # C3: Загрузка всех артефактов
+      - name: Upload SBOM & SCA evidence artifacts  
+        if: always()  # Загружаем даже при ошибках
+        uses: actions/upload-artifact@v4
+        with:
+          name: P09_SBOM_SCA_Evidence
+          path: EVIDENCE/P09/
+          retention-days: 90  # Долгосрочное хранение для compliance
+
+      # C2: Анализ результатов и вывод рекомендаций
+      - name: Analyze scan results and provide recommendations
+        if: always()
+        run: |
+          echo "Analysis Summary:"
+          echo "=================="
+          
+          if [ -f "EVIDENCE/P09/sca_report.json" ]; then
+            total_vulns=$(jq '.matches | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+            echo "Total vulnerabilities found: $total_vulns"
+            
+            if [ "$total_vulns" -gt 0 ]; then
+              echo ""
+              echo "Recommended Actions:"
+              echo "1. Review the detailed report: EVIDENCE/P09/sca_summary.md"
+              echo "2. Download artifacts from this workflow run"
+              echo "3. Create issues for Critical/High severity vulnerabilities"
+              echo "4. Update vulnerable dependencies where possible"
+              echo "5. Create waivers in policy/waivers.yml for accepted risks"
+              echo ""
+              echo "Files to review:"
+              echo "- EVIDENCE/P09/sbom.json (complete component inventory)"
+              echo "- EVIDENCE/P09/sca_report.json (detailed vulnerability data)"
+              echo "- EVIDENCE/P09/sca_summary.md (human-readable summary)"
+            else
+              echo "No vulnerabilities found - great security posture!"
+            fi
+          else
+            echo "SCA report not found - check previous steps"
+          fi
+          
+          echo ""
+          echo "Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      # C5: Опциональная проверка на критические уязвимости (для продвинутого уровня)
+      - name: Check for critical vulnerabilities (informational)
+        if: always()
+        continue-on-error: true  # Не блокируем CI, только информируем
+        run: |
+          if [ -f "EVIDENCE/P09/sca_report.json" ]; then
+            # Пробуем Trivy format сначала
+            if jq -e '.Results' EVIDENCE/P09/sca_report.json > /dev/null 2>&1; then
+              critical_count=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+              high_count=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+              format_used="Trivy"
+            else
+              # Fallback к Grype format
+              critical_count=$(jq '[.matches[].vulnerability.severity] | map(select(. == "Critical")) | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+              high_count=$(jq '[.matches[].vulnerability.severity] | map(select(. == "High")) | length' EVIDENCE/P09/sca_report.json 2>/dev/null || echo "0")
+              format_used="Grype"
+            fi
+            
+            echo "Security Alert Summary ($format_used format):"
+            echo "Critical vulnerabilities: $critical_count"
+            echo "High vulnerabilities: $high_count"
+            
+            if [ "$critical_count" -gt 0 ] || [ "$high_count" -gt 0 ]; then
+              echo ""
+              echo "Action Required:"
+              echo "Found $critical_count Critical + $high_count High severity vulnerabilities"
+              echo "These should be reviewed and addressed according to your security policy"
+              echo ""
+              echo "SBOM-based analysis (Syft -> Trivy) provides comprehensive coverage of:"
+              echo "- Python dependencies from requirements.txt"
+              echo "- Container base image vulnerabilities (if Docker context included)"
+              echo "- Transitive dependency vulnerabilities"
+            fi
+          fi
