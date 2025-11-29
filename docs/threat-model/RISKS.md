@@ -36,7 +36,7 @@
 | **R03** | 🟠 **DoS через большие запросы** | F1-F3 / NFR-07 | 3 | 4 | **12** | Availability | **Снизить** | @DedovInside | 2025.11.15 | FastAPI request size limit ≤ 1MB + тесты 413 |
 | **R04** | 🟠 **DoS через высокую частоту запросов** | F1-F3 / NFR-08 | 4 | 3 | **12** | Availability | **Снизить** | @DedovInside | 2025.11.15 | Rate limiting ≤ 100 req/min + тесты 429 |
 | **R05** | 🟠 **Information disclosure через ошибки** | F1-F3 / NFR-13 | 3 | 4 | **12** | Information Security | **Снизить** | @DedovInside | 2025.10.25 | 0% sensitive data в error responses + security тесты |
-| **R06** | 🟡 **SQL Injection в будущих версиях** | F4 / NFR-04 | 2 | 4 | **8** | Code Security | **Снизить** | @DedovInside | 2025.10.30 | bandit SAST в CI + 0 security findings |
+| **R06** | 🟡 **SQL Injection** | F4 / NFR-04 | 2 | 4 | **8** | Code Security | **Снизить** | @DedovInside | 2025.10.30 | bandit SAST в CI + 0 security findings |
 | **R07** | 🟡 **Уязвимые зависимости** | F10 / NFR-05 | 3 | 3 | **9** | Supply Chain | **Снизить** | @DedovInside | 2025.10.30 | safety scanning в CI + High/Critical ≤ 3 дня SLA |
 | **R08** | 🟡 **Раскрытие секретов в коде** | F6 / NFR-10 | 2 | 3 | **6** | Configuration Security | **Снизить** | @DedovInside | 2025.11.01 | detect-secrets в pre-commit + 0 найденных секретов |
 | **R09** | 🟡 **Отсутствие аудита действий** | F5 / NFR-09 | 3 | 3 | **9** | Compliance | **Снизить** | @DedovInside | 2025.11.30 | 100% CRUD операций логируются + structured logs |

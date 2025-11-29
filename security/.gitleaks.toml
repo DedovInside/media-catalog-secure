@@ -1,0 +1,90 @@
+title = "Media Catalog Secure - Gitleaks Configuration"
+
+# Используем стандартные правила Gitleaks + кастомизация под проект
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist для известных false positives в Media Catalog проекте"
+
+# ИСПРАВЛЕНИЕ: Исключаем директории с артефактами и тестами
+# Используем простые строковые паттерны, НЕ glob patterns
+paths = [
+    "EVIDENCE/",                     # Артефакты P09, P10
+    "tests/",                        # Тестовые файлы
+    ".git/",                         # Git метаданные  
+    "node_modules/",                 # JS зависимости (если появятся)
+    ".secrets.baseline",             # Baseline файл detect-secrets
+    "docs/adr/",                     # Architecture Decision Records с примерами
+]
+
+# Исключаем файлы по расширениям (НЕ glob patterns)
+files = [
+    ".sarif",                        # SARIF отчеты
+    ".json",                         # JSON отчеты (могут содержать примеры)
+]
+
+# Коммиты которые точно безопасны (можно добавить при необходимости)
+commits = [
+    # Добавить hash коммитов с известными false positives если появятся
+]
+
+# ПРАВИЛЬНЫЕ регулярные выражения для исключения false positives
+regexes = [
+    # Тестовые секреты в документации (экранируем спецсимволы)
+    '''test[-_]?secret[-_]?do[-_]?not[-_]?use''',
+    '''example[-_]?password''',
+    '''sample[-_]?api[-_]?key''',
+    '''demo[-_]?token''',
+    
+    # Placeholder значения в конфигах
+    '''<your[-_]?token[-_]?here>''',
+    '''placeholder[-_]?value''',
+    '''change[-_]?me''',
+    
+    # Хеши паролей и другие публичные значения
+    '''sha256:[a-f0-9]{64}''',
+    '''md5:[a-f0-9]{32}''',
+    
+    # UUID и технические идентификаторы  
+    '''[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}''',
+    
+    # Известные тестовые строки из документации ADR-004
+    '''5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8''',
+    '''6be2053f84499e9f8f8b4e6d34ce361e5f7dd25d''',
+    
+    # Исключаем тестовые файлы через regex (правильный способ)
+    '''test_.*\.py''',
+    '''conftest\.py''',
+    '''.*_test\.py''',
+    
+    # Исключаем CI секреты GitHub Actions (они безопасны в логах)
+    '''\$\{\{\s*secrets\.[A-Z_]+\s*\}\}''',
+    '''\$\{\{\s*github\.[a-z_]+\s*\}\}''',
+]
+
+# Кастомные правила для специфичных секретов Media Catalog
+[[rules]]
+id = "media-catalog-vault-token"
+description = "HashiCorp Vault token для Media Catalog"
+regex = '''hvs\.[a-zA-Z0-9]{24}'''
+keywords = ["hvs."]
+
+[[rules]]
+id = "media-catalog-db-connection"  
+description = "Database connection string с credentials"
+regex = '''postgresql://[a-zA-Z0-9_-]+:[a-zA-Z0-9_!@#$%^&*()-]+@[a-zA-Z0-9.-]+:[0-9]+/[a-zA-Z0-9_-]+'''
+keywords = ["postgresql://"]
+
+[[rules]]
+id = "media-catalog-fastapi-secret"
+description = "FastAPI SECRET_KEY"
+regex = '''SECRET_KEY\s*=\s*['""][a-zA-Z0-9+/=]{32,}['""]'''
+keywords = ["SECRET_KEY"]
+
+# Правило для GitHub токенов (если используются в коде)
+[[rules]]
+id = "media-catalog-github-token"
+description = "GitHub personal access token"
+regex = '''gh[pousr]_[A-Za-z0-9_]{36}'''
+keywords = ["ghp_", "gho_", "ghu_", "ghs_", "ghr_"]

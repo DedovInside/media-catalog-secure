@@ -1,0 +1,166 @@
+{
+  "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/schemas/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "toolExecutionNotifications": [
+            {
+              "descriptor": {
+                "id": "Other syntax error"
+              },
+              "level": "warning",
+              "message": {
+                "text": "Other syntax error at line security/semgrep/rules.yml:194:\n (approximate error location; error nearby after) error calling parser: found unknown escape character character 0 position 0 returned: 0"
+              }
+            }
+          ]
+        }
+      ],
+      "results": [
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "c40d4e905a6dc729a145bffeaeb023420155e988014d4c3a78050b2239c29db0e5082cdd1a8e9b69a4de1a1e6d0a88097d3dcb62c3218cbcdc692b9cceddadec_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/ci.yml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 14,
+                  "endLine": 345,
+                  "snippet": {
+                    "text": "        run: |\n          mkdir -p deployment-reports\n          \n          # \u041e\u0441\u043d\u043e\u0432\u043d\u043e\u0439 \u043e\u0442\u0447\u0451\u0442 \u0432 JSON\n          cat > deployment-reports/staging-deploy.json << EOF\n          {\n            \"timestamp\": \"$(date -Iseconds)\",\n            \"commit\": \"${{ github.sha }}\",\n            \"commit_message\": \"${{ github.event.head_commit.message }}\",\n            \"branch\": \"${{ github.ref_name }}\",\n            \"environment\": \"staging\",\n            \"status\": \"success\",\n            \"image\": \"ghcr.io/dedovinside/media-catalog-secure:${{ github.sha }}\",\n            \"image_latest\": \"ghcr.io/dedovinside/media-catalog-secure:latest\", \n            \"deployer\": \"${{ github.actor }}\",\n            \"workflow_run\": \"${{ github.run_id }}\",\n            \"deployment_type\": \"simulation\",\n            \"deployment_url\": \"https://staging.media-catalog.local\",\n            \"artifacts\": {\n              \"docker_image\": \"media-catalog-latest.tar.gz\",\n              \"test_reports\": \"test-artifacts/\"\n            }\n          }\n          EOF\n          \n          # \u0427\u0438\u0442\u0430\u0435\u043c\u044b\u0439 \u043e\u0442\u0447\u0451\u0442 \u0432 Markdown\n          cat > deployment-reports/deployment-summary.md << EOF\n          # Staging Deployment Report\n          \n          ## Deployment Details\n          - **Environment**: Staging (Simulation)\n          - **Commit**: \\`${{ github.sha }}\\`\n          - **Branch**: \\`${{ github.ref_name }}\\`\n          - **Deployer**: ${{ github.actor }}\n          - **Timestamp**: $(date -Iseconds)\n          - **Deployment URL**: https://staging.media-catalog.local\n          \n          ## Docker Image\n          - **Image**: \\`ghcr.io/dedovinside/media-catalog-secure:${{ github.sha }}\\`\n          - **Latest Tag**: \\`ghcr.io/dedovinside/media-catalog-secure:latest\\`\n          - **Size**: $(du -h media-catalog-latest.tar.gz 2>/dev/null | cut -f1 || echo \"Unknown\")\n          \n          ## Validation Results (Simulated)\n          - **Image Load**: Success\n          - **Metadata Validation**: Passed\n          - **Security Inspection**: Non-root user confirmed\n          - **Port Configuration**: 8000 exposed correctly\n          - **Health Endpoint**: /health would respond HTTP 200\n          - **Database Connection**: PostgreSQL connectivity simulated\n          - **Vault Integration**: Secrets access simulated\n          \n          ## Deployment Steps (Simulated)\n          - Kubernetes cluster deployment\n          - Rolling update strategy\n          - Load balancer configuration\n          - DNS record updates\n          - Monitoring setup\n          - Stakeholder notifications\n          \n          ## Artifacts\n          - Docker image artifact\n          - Test coverage reports\n          - Security scan results\n          - Deployment logs\n          \n          ## Links\n          - **Workflow Run**: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\n          - **Commit**: https://github.com/${{ github.repository }}/commit/${{ github.sha }}\n          EOF\n          \n          # \u0422\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u0438\u0439 \u043b\u043e\u0433\n          cat > deployment-reports/deployment.log << EOF\n          [$(date -Iseconds)] Deployment simulation started\n          [$(date -Iseconds)] Environment: staging\n          [$(date -Iseconds)] Image: ghcr.io/dedovinside/media-catalog-secure:${{ github.sha }}\n          [$(date -Iseconds)] Deployer: ${{ github.actor }}\n          [$(date -Iseconds)] Artifacts downloaded successfully\n          [$(date -Iseconds)] Docker image loaded and validated\n          [$(date -Iseconds)] Image metadata inspection completed\n          [$(date -Iseconds)] Security validation passed\n          [$(date -Iseconds)] Deployment workflow simulation completed\n          [$(date -Iseconds)] Rollback preparation completed\n          [$(date -Iseconds)] Deployment simulation finished successfully\n          EOF"
+                  },
+                  "startColumn": 9,
+                  "startLine": 262
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Using variable interpolation `${{...}}` with `github` context data in a `run:` step could allow an attacker to inject their own code into the runner. This would allow them to steal secrets and code. `github` context data can have arbitrary user input and should be treated as untrusted. Instead, use an intermediate environment variable with `env:` to store the data and use the environment variable in the `run:` script. Be sure to use double-quotes the environment variable, like this: \"$ENVVAR\"."
+          },
+          "properties": {},
+          "ruleId": "yaml.github-actions.security.run-shell-injection.run-shell-injection"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "6256f2a5e072086326235dc06b61ea7d20a4262be284d800c82d75ad49a5faa92ff7ea094366e0531ca159f30b871cef8fc745573c56d18874ac37ea498a4c20_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/crud/media.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 18,
+                  "endLine": 83,
+                  "snippet": {
+                    "text": "    async def create_media(\n        self, db: AsyncSession, media_data: MediaCreate, user_id: int\n    ) -> MediaModel:\n        \"\"\"Create new media with user isolation\"\"\"\n        new_media = MediaModel(\n            title=media_data.title,\n            kind=media_data.kind,\n            year=media_data.year,\n            description=media_data.description,\n            user_id=user_id,  # \ud83d\udd12 User isolation (NFR-06)\n            status=WatchStatus.TO_WATCH,\n            rating=None,\n        )\n\n        db.add(new_media)\n        try:\n            await db.commit()\n            await db.refresh(new_media)\n            return new_media\n        except IntegrityError:\n            await db.rollback()\n            # Log the actual error for debugging but don't expose it\n            # logger.error(f\"Database integrity error: {e}\")\n            raise  # Re-raise for duplicate handling"
+                  },
+                  "startColumn": 5,
+                  "startLine": 60
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "CRUD \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u044f \u0431\u0435\u0437 audit logging (NFR-09)"
+          },
+          "properties": {},
+          "ruleId": "security.semgrep.media-catalog-missing-audit-log"
+        },
+        {
+          "fingerprints": {
+            "matchBasedId/v1": "5556226475f8c200d39980d2d99bd58a2cf058afb1994792e94f31c3e3aee7a1770d341c224da5e5f16efbdf411faaedd2be4cdb1380097da49facd4b79c765d_0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/crud/media.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endColumn": 20,
+                  "endLine": 138,
+                  "snippet": {
+                    "text": "    async def delete_media(self, db: AsyncSession, media_id: int, user_id: int) -> bool:\n        \"\"\"Delete media with user isolation\"\"\"\n        media = await self.get_media_by_id(db, media_id, user_id)\n        if not media:\n            return False\n\n        await db.delete(media)\n        await db.commit()\n        return True"
+                  },
+                  "startColumn": 5,
+                  "startLine": 130
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "CRUD \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u044f \u0431\u0435\u0437 audit logging (NFR-09)"
+          },
+          "properties": {},
+          "ruleId": "security.semgrep.media-catalog-missing-audit-log"
+        }
+      ],
+      "tool": {
+        "driver": {
+          "name": "semgrep",
+          "rules": [
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "fullDescription": {
+                "text": "Using variable interpolation `${{...}}` with `github` context data in a `run:` step could allow an attacker to inject their own code into the runner. This would allow them to steal secrets and code. `github` context data can have arbitrary user input and should be treated as untrusted. Instead, use an intermediate environment variable with `env:` to store the data and use the environment variable in the `run:` script. Be sure to use double-quotes the environment variable, like this: \"$ENVVAR\"."
+              },
+              "help": {
+                "markdown": "Using variable interpolation `${{...}}` with `github` context data in a `run:` step could allow an attacker to inject their own code into the runner. This would allow them to steal secrets and code. `github` context data can have arbitrary user input and should be treated as untrusted. Instead, use an intermediate environment variable with `env:` to store the data and use the environment variable in the `run:` script. Be sure to use double-quotes the environment variable, like this: \"$ENVVAR\".\n\n<b>References:</b>\n - [Semgrep Rule](https://semgrep.dev/r/yaml.github-actions.security.run-shell-injection.run-shell-injection)\n - [https://docs.github.com/en/actions/learn-github-actions/security-hardening-for-github-actions#understanding-the-risk-of-script-injections](https://docs.github.com/en/actions/learn-github-actions/security-hardening-for-github-actions#understanding-the-risk-of-script-injections)\n - [https://securitylab.github.com/research/github-actions-untrusted-input/](https://securitylab.github.com/research/github-actions-untrusted-input/)\n",
+                "text": "Using variable interpolation `${{...}}` with `github` context data in a `run:` step could allow an attacker to inject their own code into the runner. This would allow them to steal secrets and code. `github` context data can have arbitrary user input and should be treated as untrusted. Instead, use an intermediate environment variable with `env:` to store the data and use the environment variable in the `run:` script. Be sure to use double-quotes the environment variable, like this: \"$ENVVAR\"."
+              },
+              "helpUri": "https://semgrep.dev/r/yaml.github-actions.security.run-shell-injection.run-shell-injection",
+              "id": "yaml.github-actions.security.run-shell-injection.run-shell-injection",
+              "name": "yaml.github-actions.security.run-shell-injection.run-shell-injection",
+              "properties": {
+                "precision": "very-high",
+                "tags": [
+                  "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')",
+                  "HIGH CONFIDENCE",
+                  "OWASP-A01:2017 - Injection",
+                  "OWASP-A03:2021 - Injection",
+                  "security"
+                ]
+              },
+              "shortDescription": {
+                "text": "Semgrep Finding: yaml.github-actions.security.run-shell-injection.run-shell-injection"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "fullDescription": {
+                "text": "CRUD \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u044f \u0431\u0435\u0437 audit logging (NFR-09)"
+              },
+              "id": "security.semgrep.media-catalog-missing-audit-log",
+              "name": "security.semgrep.media-catalog-missing-audit-log",
+              "properties": {
+                "precision": "very-high",
+                "tags": []
+              },
+              "shortDescription": {
+                "text": "Semgrep Finding: security.semgrep.media-catalog-missing-audit-log"
+              }
+            }
+          ],
+          "semanticVersion": "1.45.0"
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

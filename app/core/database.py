@@ -27,9 +27,6 @@ def get_db_secrets() -> dict:
                     vault_token = f.read().strip()
             if not vault_token:
                 raise RuntimeError("VAULT_TOKEN not provided in env or /run/secrets/vault_token")
-
-            logger.debug(f"Using VAULT_TOKEN: {vault_token[:4]}... (truncated)")
-
             client.token = vault_token
             if not client.is_authenticated():
                 raise RuntimeError("Vault authentication failed: invalid or missing VAULT_TOKEN")
