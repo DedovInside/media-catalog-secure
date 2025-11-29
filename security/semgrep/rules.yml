@@ -93,7 +93,6 @@ rules:
       stride: "S"            # Spoofing
       threat_source: "Cryptographic Weakness"
 
-
     # Правило 6: Information Disclosure через error messages
   - id: media-catalog-error-information-disclosure
     languages: [python]
@@ -142,15 +141,13 @@ rules:
     languages: [python]
     message: "Нарушение user isolation - критическая уязвимость (NFR-06)"
     severity: ERROR
-    patterns:
-      - pattern-either:
-          # CRUD операции БЕЗ user_id фильтрации
-          - pattern: select(MediaModel).where(MediaModel.id == $ID)
-          - pattern: $DB.execute("SELECT * FROM media WHERE id = $ID")
-          - pattern: MediaModel.query.filter_by(id=$ID)
-      - pattern-not: 
-          # Исключаем правильные варианты с user_id
-          - pattern: select(MediaModel).where(and_(MediaModel.id == $ID, MediaModel.user_id == $USER))
+    pattern-either:
+    # CRUD операции БЕЗ user_id фильтрации
+      - pattern: select(MediaModel).where(MediaModel.id == $ID)
+      - pattern: $DB.execute("SELECT * FROM media WHERE id = $ID")
+      - pattern: MediaModel.query.filter_by(id=$ID)
+    pattern-not:
+      - pattern: select(MediaModel).where(and_(MediaModel.id == $ID, MediaModel.user_id == $USER))   # Исключаем правильные варианты с user_id
     paths:
       include:
         - "app/crud/*.py"
@@ -174,8 +171,7 @@ rules:
       - pattern-either:
           - pattern: request.body()  # Без size limits
           - pattern: request.json()  # Без size limits
-      - pattern-not:
-          - pattern-inside: |
+      - pattern-not-inside: |
               if len($PAYLOAD) > $MAX_SIZE:
                   ...
     paths:
@@ -218,23 +214,21 @@ rules:
     languages: [python]
     message: "CRUD операция без audit logging (NFR-09)"
     severity: INFO
-    patterns:
-      - pattern-either:
-          - pattern: |
-              async def create_media(...):
-                  ...
-                  db.add($MEDIA)
-                  ...
-          - pattern: |
-              async def delete_media(...):
-                  ...
-                  await db.delete($MEDIA)
-                  ...
-      - pattern-not:
-          - pattern-inside: |
-              ...
-              logger.info(...)
-              ...
+    pattern-either:
+        - pattern: |
+            async def create_media(...):
+                ...
+                db.add($MEDIA)
+                ...
+        - pattern: |
+            async def delete_media(...):
+                ...
+                await db.delete($MEDIA)
+                ...
+    pattern-not-inside: |
+        ...
+        logger.info(...)
+        ...
     paths:
       include:
         - "app/crud/*.py"
