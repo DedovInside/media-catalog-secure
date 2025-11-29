@@ -1,0 +1,20 @@
+{
+  "scan_date": "2025-11-29T13:32:45+00:00",
+  "commit_sha": "bd3180f55379df861b6a66b37908a7e2e7868a87",
+  "commit_ref": "p09-sbom-sca",
+  "workflow_run_id": "19784571335",
+  "workflow_run_url": "https://github.com/DedovInside/media-catalog-secure/actions/runs/19784571335",
+  "tools": {
+    "sbom_generator": "anchore/syft:v1.14.0",
+    "sca_scanner": "aquasec/trivy:0.48.3",
+    "sbom_format": "CycloneDX JSON",
+    "scan_method": "SBOM-based (Syft → Trivy pipeline)"
+  },
+  "repository": "DedovInside/media-catalog-secure",
+  "actor": "DedovInside",
+  "hybrid_approach": {
+    "sbom_tool": "Syft",
+    "sca_tool": "Trivy", 
+    "reason": "Best compatibility: Syft generates reliable SBOM, Trivy provides comprehensive vulnerability detection"
+  }
+}
