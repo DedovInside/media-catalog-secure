@@ -39,35 +39,39 @@ jobs:
       # C1: Генерация SBOM с фиксированной версией инструмента
       - name: Generate SBOM with Syft (CycloneDX format)
         run: |
-            echo "Generating Software Bill of Materials (SBOM)..."
-            
-            # Используем фиксированную версию для воспроизводимости
-            # ИСПРАВЛЕНИЕ: разделяем stderr и stdout для чистого JSON
-            docker run --rm \
+          echo "Generating Software Bill of Materials (SBOM)..."
+
+          # Ключевые изменения:
+          # 1. Принудительно CycloneDX 1.4 (Grype до сих пор не любит 1.5–1.6 без metadata.component)
+          # 2. Добавляем --name и --version -> появляется обязательный metadata.component
+          
+          docker run --rm \
             -v $PWD:/work \
             -w /work \
             anchore/syft:v1.14.0 \
             packages dir:. \
-            -o cyclonedx-json \
-            2>/dev/null \
+            -o cyclonedx-json@1.4 \
+            --name "course-project" \
+            --version "${{ github.sha }}" \
             > EVIDENCE/P09/sbom.json
-            
-            echo "SBOM generated successfully"
-            echo "SBOM size: $(du -h EVIDENCE/P09/sbom.json | cut -f1)"
-            
-            # Краткая валидация SBOM
-            if jq -e '.bomFormat' EVIDENCE/P09/sbom.json > /dev/null 2>&1; then
+
+          echo "SBOM generated successfully (CycloneDX 1.4 + metadata.component)"
+          echo "SBOM size: $(du -h EVIDENCE/P09/sbom.json | cut -f1)"
+
+          # Валидация остаётся без изменений
+          if jq -e '.bomFormat' EVIDENCE/P09/sbom.json > /dev/null 2>&1; then
             component_count=$(jq '.components | length' EVIDENCE/P09/sbom.json 2>/dev/null || echo "0")
             echo "Found $component_count components in SBOM"
             echo "SBOM format: $(jq -r '.bomFormat' EVIDENCE/P09/sbom.json)"
             echo "SBOM version: $(jq -r '.specVersion' EVIDENCE/P09/sbom.json)"
-            else
+            echo "Root component: $(jq -r '.metadata.component.name + \" @ \" + .metadata.component.version' EVIDENCE/P09/sbom.json)"
+          else
             echo "Invalid SBOM format - checking file content:"
             echo "File size: $(wc -c < EVIDENCE/P09/sbom.json) bytes"
             echo "First 200 chars:"
             head -c 200 EVIDENCE/P09/sbom.json
             exit 1
-            fi
+          fi
 
         # C2: SCA сканирование на основе SBOM  
       - name: Run SCA scan with Grype
