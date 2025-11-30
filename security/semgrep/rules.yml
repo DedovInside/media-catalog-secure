@@ -1,0 +1,240 @@
+# Кастомные правила Semgrep для Media Catalog Secure
+rules:
+  # Правило 1: Небезопасный SQL (актуально для SQLAlchemy)
+  - id: media-catalog-sql-injection
+    languages: [python]
+    message: "Потенциальная SQL injection через форматирование строк в SQLAlchemy"
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: $DB.execute(f"SELECT * FROM {$TABLE} WHERE {$CONDITION}")
+          - pattern: $DB.execute(f"INSERT INTO {$TABLE} VALUES {$VALUES}")
+          - pattern: $DB.execute("SELECT * FROM " + $TABLE + " WHERE " + $CONDITION)
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+      confidence: HIGH
+      impact: HIGH
+      nfr: "NFR-04"          # Из NFR.md
+      risk: "R06"            # Из RISKS.md - SQL injection
+      stride: "TID"          # Tampering, Information Disclosure, Denial of Service
+      threat_source: "Malicious SQL Input"
+
+  # Правило 2: Небезопасное использование eval/exec
+  - id: media-catalog-dangerous-functions
+    languages: [python]
+    message: "Использование eval() или exec() может привести к code injection"
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: eval($ARG)
+          - pattern: exec($ARG)
+    metadata:
+      category: security
+      cwe: "CWE-95: Code Injection"
+      nfr: "NFR-04"
+      risk: "R06"            # Code injection risks
+      stride: "TI"           # Tampering, Information Disclosure
+      threat_source: "Malicious Input"
+
+  # Правило 3: Hardcoded credentials (специфично для медиа каталога)
+  - id: media-catalog-hardcoded-secrets
+    languages: [python]
+    message: "Обнаружены захардкоженные креденшалы в коде"
+    severity: WARNING
+    patterns:
+      - pattern-either:
+          - pattern: password = "$PASSWORD"
+          - pattern: api_key = "$KEY"
+          - pattern: secret_key = "$SECRET"
+          - pattern: VAULT_TOKEN = "$TOKEN"
+    metadata:
+      category: security
+      cwe: "CWE-798: Hardcoded Credentials"
+      nfr: "NFR-10"          # Secret Management
+      adr: "ADR-004"         # Secret management strategy
+      risk: "R08"            # Credential exposure
+      stride: "I"            # Information Disclosure
+      threat_source: "Code Repository Access"
+
+  # Правило 4: Небезопасный HTTP response (XSS)
+  - id: media-catalog-xss-response
+    languages: [python]
+    message: "Потенциальная XSS уязвимость через небезопасный HTML response"
+    severity: WARNING
+    patterns:
+      - pattern-either:
+          - pattern: HTMLResponse(f"<html>...{$USER_INPUT}...</html>")
+          - pattern: return f"<script>{$DATA}</script>"
+    metadata:
+      category: security
+      cwe: "CWE-79: Cross-site Scripting"
+      nfr: "NFR-12"          # Error Response Security
+      stride: "T"            # Tampering
+      threat_source: "Malicious User Input"
+
+  # Правило 5: Слабое случайное число для security токенов
+  - id: media-catalog-weak-random
+    languages: [python]
+    message: "Использование слабого генератора случайных чисел для security-критичных операций"
+    severity: WARNING
+    patterns:
+      - pattern-either:
+          - pattern: random.randint($A, $B)
+          - pattern: random.choice($LIST)
+      - pattern-inside: |
+          def generate_token(...):
+            ...
+    metadata:
+      category: security
+      cwe: "CWE-338: Weak Random Number Generator"
+      nfr: "NFR-10"          # Secret Management (генерация безопасных токенов)
+      risk: "R08"            # Weak cryptographic practices
+      stride: "S"            # Spoofing
+      threat_source: "Cryptographic Weakness"
+
+    # Правило 6: Information Disclosure через error messages
+  - id: media-catalog-error-information-disclosure
+    languages: [python]
+    message: "Error message может раскрывать чувствительную информацию (ADR-001)"
+    severity: WARNING
+    patterns:
+      - pattern-either:
+          - pattern: raise ApiError(..., message=f"Media with id {$ID} not found", ...)
+          - pattern: raise ApiError(..., message=f"User {$USER} ...", ...)
+          - pattern: return {"error" f"Database error {$ERROR}"}
+          - pattern: logger.error(f"Failed for user {$USER_ID} {$DETAILS}")
+    metadata:
+      category: security
+      cwe: "CWE-209: Information Exposure Through Error Messages"
+      nfr: "NFR-12"          # Error Response Security
+      adr: "ADR-001"         # Error response security
+      risk: "R05"            # Information disclosure
+      stride: "I"            # Information Disclosure
+      threat_source: "Error Message Leakage"
+
+  # Правило 7: Content-Type confusion
+  - id: media-catalog-content-type-bypass
+    languages: [python]
+    message: "Обход Content-Type validation может привести к injection (ADR-003)"
+    severity: WARNING
+    patterns:
+      - pattern-either:
+          - pattern: request.headers.get("content-type", "").startswith("text/")
+          - pattern: content_type == "application/xml"
+          - pattern: content_type == "text/html"
+    paths:
+      include:
+        - "app/api/*.py"
+        - "app/middleware/*.py"
+    metadata:
+      category: security
+      cwe: "CWE-436: Content-Type Confusion"
+      nfr: "NFR-11"          # Content-Type Validation
+      adr: "ADR-003"         # Content-type validation
+      risk: "R11"            # Content-Type bypass
+      stride: "T"            # Tampering
+      threat_source: "Malicious Content-Type"
+
+  # Правило 8: User isolation bypass
+  - id: media-catalog-user-isolation-bypass
+    languages: [python]
+    message: "Нарушение user isolation - критическая уязвимость (NFR-06)"
+    severity: ERROR
+    pattern-either:
+    # CRUD операции БЕЗ user_id фильтрации
+      - pattern: select(MediaModel).where(MediaModel.id == $ID)
+      - pattern: $DB.execute("SELECT * FROM media WHERE id = $ID")
+      - pattern: MediaModel.query.filter_by(id=$ID)
+    pattern-not:
+      - pattern: select(MediaModel).where(and_(MediaModel.id == $ID, MediaModel.user_id == $USER))   # Исключаем правильные варианты с user_id
+    paths:
+      include:
+        - "app/crud/*.py"
+        - "app/api/*.py"
+    metadata:
+      category: security
+      cwe: "CWE-639: Authorization Bypass"
+      nfr: "NFR-06"          # Data Isolation
+      risk: "R01"            # Authorization bypass
+      stride: "E"            # Elevation of Privilege
+      confidence: HIGH
+      impact: CRITICAL
+      threat_source: "Unauthorized Data Access"
+
+  # Правило 9: DoS через большие payload
+  - id: media-catalog-dos-large-payload
+    languages: [python]
+    message: "Отсутствие ограничений размера может привести к DoS (ADR-002)"
+    severity: WARNING
+    patterns:
+      - pattern-either:
+          - pattern: request.body()  # Без size limits
+          - pattern: request.json()  # Без size limits
+      - pattern-not-inside: |
+              if len($PAYLOAD) > $MAX_SIZE:
+                  ...
+    paths:
+      include:
+        - "app/api/*.py"
+        - "app/middleware/*.py"
+    metadata:
+      category: security
+      cwe: "CWE-770: Resource Exhaustion"
+      nfr: "NFR-07"          # Request Size Limits
+      adr: "ADR-002"         # Request protection
+      risk: "R03"            # DoS attacks
+      stride: "D"            # Denial of Service
+      threat_source: "Large Payload Attack"
+
+
+  # Правило 10: Logging sensitive data
+  - id: media-catalog-sensitive-logging
+    languages: [python]
+    message: "Логирование чувствительных данных может привести к утечке"
+    severity: WARNING
+    patterns:
+      - pattern-either:
+          - pattern: logger.$LEVEL(f"User password {$PASS}")
+          - pattern: logger.$LEVEL(f"Token {$TOKEN}")
+          - pattern: logger.$LEVEL(f"Secret {$SECRET}")
+          - pattern: print(f"Database URL {$DB_URL}")
+    metadata:
+      category: security
+      cwe: "CWE-532: Information Exposure Through Log Files"
+      nfr: "NFR-09"          # Audit Logging (безопасное логирование)
+      nfr_secondary: "NFR-10" # Secret Management
+      risk: "R10"            # Information leakage through logs
+      stride: "I"            # Information Disclosure
+      threat_source: "Log File Access"
+
+
+  # Правило 11: Отсутствие audit logging
+  - id: media-catalog-missing-audit-log
+    languages: [python]
+    message: "CRUD операция без audit logging (NFR-09)"
+    severity: INFO
+    pattern-either:
+        - pattern: |
+            async def create_media(...):
+                ...
+                db.add($MEDIA)
+                ...
+        - pattern: |
+            async def delete_media(...):
+                ...
+                await db.delete($MEDIA)
+                ...
+    pattern-not-inside: |
+        ...
+        logger.info(...)
+        ...
+    paths:
+      include:
+        - "app/crud/*.py"
+    metadata:
+      category: compliance
+      nfr: "NFR-09"          # Audit Logging
+      risk: "R09"            # Insufficient logging
+      stride: "R"            # Repudiation
+      threat_source: "Missing Audit Trail"
