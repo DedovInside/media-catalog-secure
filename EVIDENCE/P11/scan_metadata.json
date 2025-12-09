@@ -1,0 +1,10 @@
+{
+  "scan_type": "DAST",
+  "tool": "OWASP ZAP",
+  "mode": "baseline",
+  "target": "http://localhost:8080",
+  "timestamp": "2025-12-09T20:33:34Z",
+  "workflow_run": "20077631468",
+  "commit": "bdfbaf13ae436d791d55400611eb7143daee551a",
+  "branch": "p11-dast-zap"
+}
