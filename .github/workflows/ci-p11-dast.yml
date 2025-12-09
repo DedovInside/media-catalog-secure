@@ -1,0 +1,227 @@
+name: Security - DAST (ZAP Baseline)
+
+# C5. Правильные триггеры для сканирования DAST
+# Запуск по запросу и при изменении кода приложения или зависимостей
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "app/**/*.py" # Изменения в коде приложения
+      - "requirements.txt" # Изменения в зависимостях
+      - ".github/workflows/ci-p11-dast.yml" # Изменения в этом файле
+
+# C5. Минимальные разрешения для безопасности
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dast_zap_baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20 # C5. Разумный таймаут для сканирования
+
+    # PostgreSQL с секретами из GitHub Secrets
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ${{ secrets.DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.DB_NAME }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    # ENV=ci + секреты из GitHub Secrets (как в ci.yml)
+    env:
+      ENV: ci
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: ${{ secrets.DB_NAME }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+        # Базовая настройка и подготовка
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+        # C3. Создаём структуру директорий для артефактов
+      - name: Prepare evidence directories
+        run: |
+          mkdir -p EVIDENCE/P11
+          echo "Created evidence directory for P11"
+
+        # C1. Установка Python и зависимостей
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+        
+        # C1. Установка зависимостей приложения
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+        
+        # C1. Запуск приложения в фоновом режиме
+      - name: Start application for DAST
+        run: |
+          echo "Starting Media Catalog API..."
+          
+          # Запуск uvicorn в фоне
+          nohup uvicorn app.main:app \
+            --host 0.0.0.0 \
+            --port 8080 \
+            --log-level info \
+            > /tmp/uvicorn.log 2>&1 &
+          
+          APP_PID=$!
+          echo "APP_PID=$APP_PID" >> $GITHUB_ENV
+          echo "Application started with PID: $APP_PID"
+          
+          # Ждём готовности
+          echo "Waiting for /health endpoint..."
+          timeout 60 bash -c 'until curl -sf http://localhost:8080/health; do 
+            sleep 2; 
+          done'
+          
+          echo "Application is ready!"
+          curl -v http://localhost:8080/health
+          
+          # Проверяем другие endpoints
+          echo ""
+          echo "Testing API endpoints:"
+          curl -sf http://localhost:8080/docs && echo "/docs available" || echo "/docs not available"
+          curl -sf http://localhost:8080/media && echo "/media available" || echo "/media not available"
+
+        # C2. Запуск DAST сканирования OWASP ZAP Baseline
+      - name: Run OWASP ZAP Baseline Scan
+        run: |
+          echo "========================================="
+          echo "Starting DAST with OWASP ZAP"
+          echo "========================================="
+          
+          docker run --rm \
+            --network host \
+            -v $PWD:/zap/wrk \
+            owasp/zap2docker-stable \
+            zap-baseline.py \
+              -t http://localhost:8080 \
+              -r zap_baseline.html \
+              -J zap_baseline.json \
+              -d \
+              || true
+          
+          # Перемещаем отчёты
+          mv zap_baseline.html EVIDENCE/P11/ || exit 1
+          mv zap_baseline.json EVIDENCE/P11/ || exit 1
+          
+          echo "DAST scan completed"
+        
+        # C3. Генерация сводного отчёта DAST
+      - name: Generate DAST summary
+        if: always()
+        run: |
+          cat > EVIDENCE/P11/dast_summary.md <<'EOF'
+          # DAST Scan Summary
+          
+          **Target**: http://localhost:8080
+          **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Tool**: OWASP ZAP Baseline
+          
+          ## Scanned Endpoints
+          - `/health` - Health check
+          - `/media` - Media CRUD API
+          - `/docs` - OpenAPI docs
+          - `/openapi.json` - API spec
+          
+          ## Results
+          EOF
+          
+          # Парсим JSON если доступен jq
+          if command -v jq &> /dev/null && [ -f "EVIDENCE/P11/zap_baseline.json" ]; then
+            HIGH=$(jq '[.site[].alerts[] | select(.riskdesc | startswith("High"))] | length' EVIDENCE/P11/zap_baseline.json || echo "0")
+            MEDIUM=$(jq '[.site[].alerts[] | select(.riskdesc | startswith("Medium"))] | length' EVIDENCE/P11/zap_baseline.json || echo "0")
+            LOW=$(jq '[.site[].alerts[] | select(.riskdesc | startswith("Low"))] | length' EVIDENCE/P11/zap_baseline.json || echo "0")
+            INFO=$(jq '[.site[].alerts[] | select(.riskdesc | startswith("Informational"))] | length' EVIDENCE/P11/zap_baseline.json || echo "0")
+            
+            cat >> EVIDENCE/P11/dast_summary.md <<EOF
+          
+          - High: $HIGH
+          - Medium: $MEDIUM
+          - Low: $LOW
+          - Info: $INFO
+          - **Total**: $((HIGH + MEDIUM + LOW + INFO))
+          EOF
+            
+            echo "ZAP_ALERTS_HIGH=$HIGH" >> $GITHUB_ENV
+            echo "ZAP_ALERTS_MEDIUM=$MEDIUM" >> $GITHUB_ENV
+            echo "ZAP_ALERTS_LOW=$LOW" >> $GITHUB_ENV
+            echo "ZAP_ALERTS_TOTAL=$((HIGH + MEDIUM + LOW + INFO))" >> $GITHUB_ENV
+          fi
+
+        # C3. Сохранение метаданных сканирования
+      - name: Save scan metadata
+        if: always()
+        run: |
+          cat > EVIDENCE/P11/scan_metadata.json <<EOF
+          {
+            "scan_type": "DAST",
+            "tool": "OWASP ZAP",
+            "mode": "baseline",
+            "target": "http://localhost:8080",
+            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "workflow_run": "${{ github.run_id }}",
+            "commit": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}"
+          }
+          EOF
+
+        # C1. Остановка приложения и сбор логов
+      - name: Stop application and show logs
+        if: always()
+        run: |
+          echo "Application logs (last 50 lines):"
+          tail -50 /tmp/uvicorn.log || echo "No logs"
+          
+          if [ -n "$APP_PID" ]; then
+            kill $APP_PID 2>/dev/null || true
+          fi
+        
+        # C3. Загрузка артефактов DAST
+      - name: Upload DAST artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: P11_EVIDENCE
+          path: EVIDENCE/P11/
+          retention-days: 30
+
+        # C4. Анализ и вывод результатов сканирования
+      - name: Display results summary
+        if: always()
+        run: |
+          echo "========================================="
+          echo "DAST Scan Complete"
+          echo "========================================="
+          
+          if [ -n "$ZAP_ALERTS_TOTAL" ]; then
+            echo "Alerts found: $ZAP_ALERTS_TOTAL"
+            echo "  High: $ZAP_ALERTS_HIGH"
+            echo "  Medium: $ZAP_ALERTS_MEDIUM"
+            echo "  Low: $ZAP_ALERTS_LOW"
+          fi
+          
+          echo ""
+          echo "Reports: EVIDENCE/P11/"
+          echo "Download: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
