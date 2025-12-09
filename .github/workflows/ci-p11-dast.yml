@@ -114,7 +114,7 @@ jobs:
           docker run --rm \
             --network host \
             -v $PWD:/zap/wrk \
-            owasp/zap2docker-stable \
+            ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
               -t http://localhost:8080 \
               -r zap_baseline.html \
