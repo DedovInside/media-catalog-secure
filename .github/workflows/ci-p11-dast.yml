@@ -113,6 +113,7 @@ jobs:
           
           docker run --rm \
             --network host \
+            --user root \
             -v $PWD:/zap/wrk \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
