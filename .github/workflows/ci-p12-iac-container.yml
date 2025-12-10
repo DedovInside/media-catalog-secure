@@ -85,7 +85,6 @@ jobs:
             bridgecrew/checkov:latest \
             --config-file /work/security/checkov.yaml \
             --directory /work \
-            --framework dockerfile docker-compose \
             --output json \
             --compact \
             --soft-fail \
