@@ -1,0 +1,34 @@
+# Конфигурация Checkov для проверки IaC
+# Общие настройки
+quiet: false
+compact: true
+download-external-modules: false
+
+# Фреймворки для проверки
+framework:
+  - dockerfile       # Проверка Dockerfile
+  - docker-compose   # Проверка docker-compose.yaml
+  # - kubernetes     # Если будут K8s манифесты
+  # - terraform      # Если будет Terraform
+
+# Директории для сканирования (указываются в CLI)
+# directory: 
+#   - .
+
+# Пропускаемые проверки (skip-check)
+# Указываем только если есть осознанная причина
+skip-check:
+  # Пример: CKV_DOCKER_2 - "Ensure that HEALTHCHECK instructions have been added"
+  # У нас есть HEALTHCHECK, но если Checkov ругается на compose - можем добавить:
+  # - CKV_DOCKER_2
+  
+  # CKV_DOCKER_3 - "Ensure that a user for the container has been created"
+  # У нас есть USER appuser, не пропускаем
+  
+  # Если появятся специфичные false positives - добавим сюда
+
+# Уровень вывода
+output: json
+
+# Не останавливать при нахождении проблем (для CI)
+soft-fail: true

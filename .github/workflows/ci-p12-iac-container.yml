@@ -1,0 +1,335 @@
+name: Security - IaC & Container (P12)
+
+# C5: Правильные триггеры
+on:
+  workflow_dispatch:  # Ручной запуск
+  push:
+    paths:
+      - "Dockerfile"                              # Изменения в Dockerfile
+      - "compose.yaml"                            # Изменения в compose
+      - "requirements*.txt"                       # Изменения в зависимостях
+      - "security/hadolint.yaml"                  # Изменения в конфигах
+      - "security/checkov.yaml"
+      - "security/trivy.yaml"
+      - ".github/workflows/ci-p12-iac-container.yml"
+
+# C5: Минимальные разрешения
+permissions:
+  contents: read
+
+# C5: Предотвращение дублирующих запусков
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  iac_container_security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # Базовая подготовка
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # C3: Создаём структуру для артефактов
+      - name: Prepare evidence directories
+        run: |
+          mkdir -p EVIDENCE/P12
+          echo "Created evidence directory for P12"
+          ls -la EVIDENCE/
+
+      # C1: Проверка Dockerfile с Hadolint
+      - name: Run Hadolint on Dockerfile
+        run: |
+          echo "Starting Hadolint analysis of Dockerfile..."
+          
+          # Запускаем Hadolint через Docker
+          docker run --rm -i \
+            -v $PWD:/work \
+            -w /work \
+            hadolint/hadolint:latest \
+            hadolint --config /work/security/hadolint.yaml \
+            --format json \
+            /work/Dockerfile \
+            > EVIDENCE/P12/hadolint_report.json || true
+          
+          echo "Hadolint analysis completed"
+          
+          # Показываем краткую сводку
+          if [ -f "EVIDENCE/P12/hadolint_report.json" ]; then
+            echo "Report size: $(du -h EVIDENCE/P12/hadolint_report.json | cut -f1)"
+            
+            # Подсчитываем количество находок
+            issue_count=$(jq '. | length' EVIDENCE/P12/hadolint_report.json 2>/dev/null || echo "0")
+            echo "Found $issue_count Dockerfile issues"
+            
+            # Показываем первые несколько находок
+            if [ "$issue_count" -gt "0" ]; then
+              echo "Sample findings:"
+              jq -r '.[] | "  - [\(.level)] \(.code): \(.message)"' EVIDENCE/P12/hadolint_report.json | head -5
+            fi
+          else
+            echo "Warning: Hadolint report not generated"
+          fi
+
+      # C2: Проверка IaC с Checkov
+      - name: Run Checkov on IaC files
+        run: |
+          echo "Starting Checkov analysis of IaC (Dockerfile + compose.yaml)..."
+          
+          # Запускаем Checkov через Docker
+          docker run --rm -t \
+            -v $PWD:/work \
+            -w /work \
+            bridgecrew/checkov:latest \
+            --config-file /work/security/checkov.yaml \
+            --directory /work \
+            --framework dockerfile docker-compose \
+            --output json \
+            --compact \
+            --soft-fail \
+            > EVIDENCE/P12/checkov_report.json || true
+          
+          echo "Checkov analysis completed"
+          
+          # Показываем краткую сводку
+          if [ -f "EVIDENCE/P12/checkov_report.json" ]; then
+            echo "Report size: $(du -h EVIDENCE/P12/checkov_report.json | cut -f1)"
+            
+            # Подсчитываем статистику (если формат позволяет)
+            if jq -e '.summary' EVIDENCE/P12/checkov_report.json > /dev/null 2>&1; then
+              echo "Checkov summary:"
+              jq '.summary' EVIDENCE/P12/checkov_report.json
+            else
+              echo "Report generated successfully"
+            fi
+          else
+            echo "Warning: Checkov report not generated"
+          fi
+
+      # C1: Сборка Docker образа для сканирования
+      - name: Build Docker image for scanning
+        run: |
+          echo "Building Docker image for Trivy scan..."
+          
+          docker build \
+            --target runtime \
+            --tag media-catalog-api:p12-scan \
+            --file Dockerfile \
+            .
+          
+          echo "Image built successfully"
+          docker images media-catalog-api:p12-scan
+
+      # C3: Сканирование образа с Trivy
+      - name: Run Trivy on Docker image
+        run: |
+          echo "Starting Trivy vulnerability scan of Docker image..."
+          
+          # Запускаем Trivy через Docker
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $PWD:/work \
+            -w /work \
+            aquasec/trivy:latest \
+            image \
+            --format json \
+            --output /work/EVIDENCE/P12/trivy_report.json \
+            --severity CRITICAL,HIGH,MEDIUM \
+            --timeout 10m \
+            media-catalog-api:p12-scan
+          
+          echo "Trivy scan completed"
+          
+          # Показываем краткую сводку
+          if [ -f "EVIDENCE/P12/trivy_report.json" ]; then
+            echo "Report size: $(du -h EVIDENCE/P12/trivy_report.json | cut -f1)"
+            
+            # Подсчитываем уязвимости по уровням
+            if jq -e '.Results' EVIDENCE/P12/trivy_report.json > /dev/null 2>&1; then
+              echo "Vulnerability summary:"
+              jq -r '.Results[]?.Vulnerabilities[]? | .Severity' EVIDENCE/P12/trivy_report.json 2>/dev/null | sort | uniq -c || echo "No vulnerabilities in standard format"
+            else
+              echo "Report generated successfully"
+            fi
+          else
+            echo "Warning: Trivy report not generated"
+          fi
+
+      # C4: Генерация сводного отчёта по харднингу
+      - name: Generate hardening summary
+        if: always()
+        run: |
+          cat > EVIDENCE/P12/hardening_summary.md << 'EOF'
+          # P12 - IaC & Container Security Summary
+          
+          **Scan Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Repository:** ${{ github.repository }}
+          **Branch:** ${{ github.ref_name }}
+          **Commit:** ${{ github.sha }}
+          
+          ---
+          
+          ## Scans Performed
+          
+          ### 1. Hadolint (Dockerfile Linting)
+          - **Status:** $([ -f EVIDENCE/P12/hadolint_report.json ] && echo "Completed" || echo "Failed")
+          - **File:** `EVIDENCE/P12/hadolint_report.json`
+          - **Findings:** $(jq '. | length' EVIDENCE/P12/hadolint_report.json 2>/dev/null || echo "N/A") issues
+          
+          ### 2. Checkov (IaC Security)
+          - **Status:** $([ -f EVIDENCE/P12/checkov_report.json ] && echo "Completed" || echo "Failed")
+          - **File:** `EVIDENCE/P12/checkov_report.json`
+          - **Frameworks:** Dockerfile, Docker Compose
+          
+          ### 3. Trivy (Image Vulnerabilities)
+          - **Status:** $([ -f EVIDENCE/P12/trivy_report.json ] && echo "Completed" || echo "Failed")
+          - **File:** `EVIDENCE/P12/trivy_report.json`
+          - **Image:** media-catalog-api:p12-scan
+          
+          ---
+          
+          ## Hardening Measures Applied
+          
+          ### Dockerfile Security
+          - **Base Image:** Using pinned version `python:3.11-slim` (not `latest`)
+          - **Multi-stage Build:** Separate build and runtime stages
+          - **Non-root User:** Running as `appuser` (UID 1000)
+          - **Minimal Dependencies:** `--no-install-recommends` flag used
+          - **Layer Optimization:** Combined RUN commands, cleaned apt cache
+          - **Healthcheck:** Implemented for container monitoring
+          - **Build Cache:** Using BuildKit cache mounts
+          
+          ### Docker Compose Security
+          - **Secrets Management:** Using Docker secrets (not environment variables)
+          - **Network Isolation:** Custom bridge network
+          - **Health Checks:** Configured for all services
+          - **Restart Policy:** `unless-stopped` for stability
+          - **PostgreSQL Security:** SCRAM-SHA-256 authentication
+          
+          ---
+          
+          ## Next Steps
+          
+          1. Review findings in detail:
+             - Check `EVIDENCE/P12/hadolint_report.json` for Dockerfile improvements
+             - Check `EVIDENCE/P12/checkov_report.json` for IaC misconfigurations
+             - Check `EVIDENCE/P12/trivy_report.json` for vulnerabilities
+          
+          2. Address critical and high severity findings
+          
+          3. Update base images and dependencies regularly
+          
+          4. Consider additional hardening:
+             - Add security scanning to pre-commit hooks
+             - Implement image signing
+             - Set up vulnerability monitoring
+          
+          ---
+          
+          ## Detailed Reports
+          
+          Download artifacts from: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
+          
+          echo "Hardening summary generated"
+          cat EVIDENCE/P12/hardening_summary.md
+
+      # C3: Сохранение метаданных сканирования
+      - name: Save scan metadata
+        if: always()
+        run: |
+          cat > EVIDENCE/P12/scan_metadata.json << EOF
+          {
+            "scan_type": "iac_container_security",
+            "practice": "P12",
+            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "repository": "${{ github.repository }}",
+            "branch": "${{ github.ref_name }}",
+            "commit": "${{ github.sha }}",
+            "workflow_run": "${{ github.run_id }}",
+            "tools": {
+              "hadolint": {
+                "version": "latest",
+                "config": "security/hadolint.yaml",
+                "target": "Dockerfile"
+              },
+              "checkov": {
+                "version": "latest",
+                "config": "security/checkov.yaml",
+                "frameworks": ["dockerfile", "docker-compose"]
+              },
+              "trivy": {
+                "version": "latest",
+                "config": "security/trivy.yaml",
+                "target": "media-catalog-api:p12-scan"
+              }
+            },
+            "artifacts": [
+              "EVIDENCE/P12/hadolint_report.json",
+              "EVIDENCE/P12/checkov_report.json",
+              "EVIDENCE/P12/trivy_report.json",
+              "EVIDENCE/P12/hardening_summary.md"
+            ]
+          }
+          EOF
+          
+          echo "Scan metadata saved"
+          cat EVIDENCE/P12/scan_metadata.json
+
+      # C3: Загрузка всех артефактов
+      - name: Upload P12 evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: P12_IaC_Container_Security_Evidence
+          path: EVIDENCE/P12/
+          retention-days: 90
+
+      # C4: Финальный анализ и рекомендации
+      - name: Display security analysis summary
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "P12 - IaC & Container Security Scan Complete"
+          echo "=========================================="
+          echo ""
+          
+          echo "Scan Results:"
+          echo ""
+          
+          # Hadolint
+          if [ -f "EVIDENCE/P12/hadolint_report.json" ]; then
+            hadolint_issues=$(jq '. | length' EVIDENCE/P12/hadolint_report.json 2>/dev/null || echo "0")
+            echo "Hadolint: $hadolint_issues Dockerfile issues found"
+          fi
+          
+          # Checkov
+          if [ -f "EVIDENCE/P12/checkov_report.json" ]; then
+            echo "Checkov: IaC scan completed"
+          fi
+          
+          # Trivy
+          if [ -f "EVIDENCE/P12/trivy_report.json" ]; then
+            echo "Trivy: Image vulnerability scan completed"
+            
+            # Подсчитываем критичные уязвимости
+            critical_count=$(jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL") | .VulnerabilityID' EVIDENCE/P12/trivy_report.json 2>/dev/null | wc -l || echo "0")
+            high_count=$(jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH") | .VulnerabilityID' EVIDENCE/P12/trivy_report.json 2>/dev/null | wc -l || echo "0")
+            
+            echo "- CRITICAL: $critical_count"
+            echo "- HIGH: $high_count"
+            
+            if [ "$critical_count" -gt "0" ]; then
+              echo ""
+              echo "ATTENTION: Critical vulnerabilities found!"
+              echo "Review EVIDENCE/P12/trivy_report.json and update dependencies"
+            fi
+          fi
+          
+          echo ""
+          echo "Evidence Location: EVIDENCE/P12/"
+          echo "Artifacts: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo ""
+          echo "P12 Security Scan Pipeline Completed"
