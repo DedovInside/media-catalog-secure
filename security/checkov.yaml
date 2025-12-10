@@ -7,7 +7,7 @@ download-external-modules: false
 # Фреймворки для проверки
 framework:
   - dockerfile       # Проверка Dockerfile
-  - docker-compose   # Проверка docker-compose.yaml
+  - yaml   # yaml (для docker-compose)
   # - kubernetes     # Если будут K8s манифесты
   # - terraform      # Если будет Terraform
 
