@@ -1,0 +1,32 @@
+{
+  "scan_type": "iac_container_security",
+  "practice": "P12",
+  "timestamp": "2025-12-10T13:41:27Z",
+  "repository": "DedovInside/media-catalog-secure",
+  "branch": "p12-iac-container",
+  "commit": "50f00f3ba80ae20a6ac0778ae19ba439cf6183eb",
+  "workflow_run": "20100601686",
+  "tools": {
+    "hadolint": {
+      "version": "latest",
+      "config": "security/hadolint.yaml",
+      "target": "Dockerfile"
+    },
+    "checkov": {
+      "version": "latest",
+      "config": "security/checkov.yaml",
+      "frameworks": ["dockerfile", "docker-compose"]
+    },
+    "trivy": {
+      "version": "latest",
+      "config": "security/trivy.yaml",
+      "target": "media-catalog-api:p12-scan"
+    }
+  },
+  "artifacts": [
+    "EVIDENCE/P12/hadolint_report.json",
+    "EVIDENCE/P12/checkov_report.json",
+    "EVIDENCE/P12/trivy_report.json",
+    "EVIDENCE/P12/hardening_summary.md"
+  ]
+}
