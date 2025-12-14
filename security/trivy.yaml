@@ -1,0 +1,29 @@
+# Конфигурация Trivy для сканирования образов
+
+# Что сканировать
+scan:
+  # Типы сканеров
+  scanners:
+    - vuln        # Уязвимости в пакетах
+    - config      # Misconfigurations
+    # - secret    # Секреты (опционально)
+  
+  # Уровни серьёзности для отчёта
+  severity:
+    - CRITICAL
+    - HIGH
+    - MEDIUM
+    # - LOW
+    # - UNKNOWN
+
+# Формат вывода
+format: json
+
+# Таймаут для скачивания БД уязвимостей
+timeout: 10m
+
+# Игнорируемые уязвимости (если есть waivers)
+# ignorefile: .trivyignore
+
+# Не останавливать CI при нахождении уязвимостей
+exit-code: 0
